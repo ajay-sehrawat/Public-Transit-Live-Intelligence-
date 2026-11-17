@@ -1,0 +1,53 @@
+========================================================================================
+BIRLA INSTITUTE OF TECHNOLOGY & SCIENCE, PILANI (RAJ)
+I SEMESTER 2025-2026 - CS/SS G527 CLOUD COMPUTING ASSIGNMENT
+TASK DIVISION AND RESPONSIBILITY MATRIX
+Domain: S11 Public Transportation — Real-Time Bus Arrival Estimates
+Mandatory Concept: ZooKeeper System
+========================================================================================
+
+MEMBER 1:
+- Name: Member 1 (Insert Full Name)
+- Student ID No: 2025XX00001P
+- Assigned Assignment Tasks:
+    * Task (a): Infrastructure as Code (IaC) - Terraform infrastructure provisioning
+    * Task (b): Cloud-Native Communication Mechanisms (gRPC contracts & REST entrypoints)
+- Assigned Microservices:
+    * Microservice 1: Vehicle Registry (Fleet master inventory, PostgreSQL, gRPC server)
+    * Microservice 2: GPS Ingestion Service (High-throughput telemetry REST API, Kafka producer)
+
+MEMBER 2:
+- Name: Member 2 (Insert Full Name)
+- Student ID No: 2025XX00002P
+- Assigned Assignment Tasks:
+    * Task (c): Managed Kubernetes (GKE), Horizontal Pod Autoscaling (HPA), and k6 Load Testing
+    * Task (d): GitOps Controller (ArgoCD continuous delivery, automated declarative Git sync)
+- Assigned Microservices:
+    * Microservice 3: Route Service (Transit route geometry, stops, geofences, travel segments)
+    * Microservice 4: Event Adapter (Telemetry normalization, UUID tagging, geospatial calculation)
+
+MEMBER 3:
+- Name: Member 3 (Insert Full Name)
+- Student ID No: 2025XX00003P
+- Assigned Assignment Tasks:
+    * Task (e): Real-Time Stream Processing (Apache Flink on Google Dataproc, 1-min windowing)
+    * Task (f): Domain Distributed Concept (ZooKeeper Active-Standby Leader Election & Watchers)
+- Assigned Microservices:
+    * Microservice 5: Stream Processor (Apache Flink stateful ETA calculator & watermarks)
+    * Microservice 6: Passenger Demand Service (Smartcard tap ingestion, crowd estimation)
+
+MEMBER 4:
+- Name: Member 4 (Insert Full Name)
+- Student ID No: 2025XX00004P
+- Assigned Assignment Tasks:
+    * Task (g): Three Distinct Cloud Storage Products (GCS Object Store, Cloud SQL, Firestore NoSQL)
+    * Task (h): Comprehensive Observability Stack (Prometheus metrics, Grafana dashboards, Loki logs)
+- Assigned Microservices:
+    * Microservice 7: Delay Alert Service (Serverless Google Cloud Function, event-driven alerts)
+    * Microservice 8: Transport Analytics API & Public Web Dashboard (Live interactive bus map)
+
+========================================================================================
+All members confirm equal division of 2 tasks and 2 microservices each.
+Total Marks Allocation: 60M (including 12M reserved for individual contribution/viva).
+========================================================================================
+

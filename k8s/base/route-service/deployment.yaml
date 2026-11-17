@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-service
+  namespace: transit-system
+  labels:
+    app: route-service
+    tier: microservice
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: route-service
+  template:
+    metadata:
+      labels:
+        app: route-service
+        tier: microservice
+    spec:
+      containers:
+      - name: route-service
+        image: gcr.io/transit-s11-prod/route-service:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8003
+          name: http
+        - containerPort: 50053
+          name: grpc
+        envFrom:
+        - configMapRef:
+            name: transit-global-config
+        - secretRef:
+            name: transit-db-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 10
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: route-service
+  namespace: transit-system
+  labels:
+    app: route-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8003
+    name: http
+    targetPort: 8003
+  - port: 50053
+    name: grpc
+    targetPort: 50053
+  selector:
+    app: route-service
+

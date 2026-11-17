@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zk
+  namespace: transit-system
+  labels:
+    app: zookeeper
+spec:
+  serviceName: zookeeper-headless
+  replicas: 3
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: zookeeper:3.9.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: peer
+        - containerPort: 3888
+          name: leader-election
+        env:
+        - name: ZOO_SERVERS
+          value: "server.1=zk-0.zookeeper-headless.transit-system.svc.cluster.local:2888:3888;2181 server.2=zk-1.zookeeper-headless.transit-system.svc.cluster.local:2888:3888;2181 server.3=zk-2.zookeeper-headless.transit-system.svc.cluster.local:2888:3888;2181"
+        - name: ZOO_4LW_COMMANDS_WHITELIST
+          value: "ruok,stat,conf,isro,mntr"
+        - name: ZOO_STANDALONE_ENABLED
+          value: "false"
+        - name: ZOO_AUTOPURGE_PURGEINTERVAL
+          value: "1"
+        - name: ZOO_AUTOPURGE_SNAPRETAINCOUNT
+          value: "3"
+        command:
+        - bash
+        - -c
+        - |
+          # Derive ZooKeeper myid from the StatefulSet pod ordinal (zk-0 -> 1, zk-1 -> 2, zk-2 -> 3)
+          ORDINAL=${HOSTNAME##*-}
+          export ZOO_MY_ID=$((ORDINAL + 1))
+          echo "Starting ZooKeeper node with ID: $ZOO_MY_ID"
+          exec /docker-entrypoint.sh zkServer.sh start-foreground
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 300m
+            memory: 512Mi
+        readinessProbe:
+          exec:
+            command:
+            - bash
+            - -c
+            - "echo ruok | nc -w 1 127.0.0.1 2181 | grep imok"
+          initialDelaySeconds: 10
+          timeoutSeconds: 3
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - bash
+            - -c
+            - "echo ruok | nc -w 1 127.0.0.1 2181 | grep imok"
+          initialDelaySeconds: 15
+          timeoutSeconds: 3
+          periodSeconds: 15
+        volumeMounts:
+        - name: zk-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: zk-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+

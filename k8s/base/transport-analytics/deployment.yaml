@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transport-analytics
+  namespace: transit-system
+  labels:
+    app: transport-analytics
+    tier: frontend-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: transport-analytics
+  template:
+    metadata:
+      labels:
+        app: transport-analytics
+        tier: frontend-api
+    spec:
+      containers:
+      - name: transport-analytics
+        image: gcr.io/transit-s11-prod/transport-analytics:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8008
+          name: http
+        envFrom:
+        - configMapRef:
+            name: transit-global-config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 10
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transport-analytics-service
+  namespace: transit-system
+  labels:
+    app: transport-analytics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8008
+    name: http
+    targetPort: 8008
+  selector:
+    app: transport-analytics
+

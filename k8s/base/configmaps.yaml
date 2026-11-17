@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: transit-global-config
+  namespace: transit-system
+data:
+  ZOOKEEPER_HOSTS: "zookeeper-service.transit-system.svc.cluster.local:2181"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-service.transit-system.svc.cluster.local:9092"
+  DATABASE_HOST: "transit-postgres-db.transit-system.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "transit_db"
+  VEHICLE_REGISTRY_GRPC_HOST: "vehicle-registry-service.transit-system.svc.cluster.local:50051"
+  VEHICLE_REGISTRY_HTTP_HOST: "http://vehicle-registry-service.transit-system.svc.cluster.local:8001"
+  ROUTE_SERVICE_GRPC_HOST: "route-service.transit-system.svc.cluster.local:50053"
+  ROUTE_SERVICE_HTTP_HOST: "http://route-service.transit-system.svc.cluster.local:8003"
+  LOG_LEVEL: "INFO"
+  GCP_PROJECT_ID: "transit-s11-prod"
+

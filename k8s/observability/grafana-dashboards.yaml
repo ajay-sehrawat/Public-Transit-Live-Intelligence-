@@ -1,0 +1,202 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: transit-system
+  labels:
+    app: grafana
+    component: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-service.transit-system.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki-service.transit-system.svc.cluster.local:3100
+        isDefault: false
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-transit-dashboard
+  namespace: transit-system
+  labels:
+    app: grafana
+    component: monitoring
+data:
+  transit-operations.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": 1,
+      "links": [],
+      "liveNow": true,
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+          "id": 1,
+          "title": "Ingestion Throughput (req/sec)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(transit_http_requests_total{endpoint=\"post_gps_telemetry\"}[1m]))",
+              "legendFormat": "GPS Raw Ingestion (S2)"
+            },
+            {
+              "expr": "sum(rate(transit_http_requests_total{endpoint=\"normalize_event\"}[1m]))",
+              "legendFormat": "Event Adapter (S4)"
+            }
+          ]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+          "id": 2,
+          "title": "p95 API Latencies by Service (ms)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(transit_http_request_duration_seconds_bucket[1m])) by (le, service)) * 1000",
+              "legendFormat": "{{service}} p95"
+            }
+          ]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+          "id": 3,
+          "title": "HPA Dynamic Replica Scaling",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "kube_hpa_status_current_replicas{hpa=\"gps-ingestion-hpa\"}",
+              "legendFormat": "GPS Ingestion Replicas"
+            },
+            {
+              "expr": "kube_hpa_status_current_replicas{hpa=\"event-adapter-hpa\"}",
+              "legendFormat": "Event Adapter Replicas"
+            }
+          ]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "id": 4,
+          "title": "Active Tracked Fleet & Average Speed (km/h)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "transport_analytics_active_buses",
+              "legendFormat": "Active Buses"
+            },
+            {
+              "expr": "transit_avg_speed_kmh",
+              "legendFormat": "Average Fleet Speed (km/h)"
+            }
+          ]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "id": 5,
+          "title": "Active Transit Delay Incidents (> 5 min late)",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "transport_analytics_delay_alerts_total",
+              "legendFormat": "Active Delay Alerts"
+            }
+          ]
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["transit", "s11", "bits-pilani"],
+      "time": { "from": "now-15m", "to": "now" },
+      "title": "S11: Public Transit Operations & Telemetry Dashboard",
+      "version": 1
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: transit-system
+  labels:
+    app: grafana
+    component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+        component: monitoring
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.0.3
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: "admin"
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: "transit2026bits"
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
+        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+          value: "Viewer"
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 400m
+            memory: 256Mi
+        volumeMounts:
+        - name: grafana-datasources-volume
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboards-volume
+          mountPath: /var/lib/grafana/dashboards
+      volumes:
+      - name: grafana-datasources-volume
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards-volume
+        configMap:
+          name: grafana-transit-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+  namespace: transit-system
+  labels:
+    app: grafana
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: http
+  selector:
+    app: grafana

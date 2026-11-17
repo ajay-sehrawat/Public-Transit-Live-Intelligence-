@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package transit;
+
+// ==============================================================================
+// SERVICE 1: Vehicle Registry Service (gRPC Interface)
+// Low-latency bus authorization and fleet metadata lookup
+// ==============================================================================
+
+service VehicleRegistryService {
+  // Real-time sub-5ms validation used by GPS Ingestion Service
+  rpc ValidateVehicle (VehicleValidationRequest) returns (VehicleValidationResponse);
+
+  // Detailed vehicle query including capacity and assigned route
+  rpc GetVehicleDetails (VehicleDetailsRequest) returns (VehicleDetailsResponse);
+
+  // List all operational vehicles
+  rpc ListActiveVehicles (ListVehiclesRequest) returns (ListVehiclesResponse);
+}
+
+message VehicleValidationRequest {
+  string bus_id = 1;
+}
+
+message VehicleValidationResponse {
+  bool is_valid = 1;
+  string bus_id = 2;
+  string status = 3;            // ACTIVE, MAINTENANCE, RETIRED, OUT_OF_SERVICE
+  string assigned_route_id = 4;
+  string message = 5;
+}
+
+message VehicleDetailsRequest {
+  string bus_id = 1;
+}
+
+message VehicleDetailsResponse {
+  string bus_id = 1;
+  string license_plate = 2;
+  string model = 3;
+  int32 capacity = 4;
+  string propulsion_type = 5;   // ELECTRIC, DIESEL, HYBRID, CNG
+  string status = 6;
+  string assigned_route_id = 7;
+  string created_at = 8;
+}
+
+message ListVehiclesRequest {
+  string status_filter = 1;     // Optional filter by status, e.g. "ACTIVE"
+}
+
+message ListVehiclesResponse {
+  repeated VehicleDetailsResponse vehicles = 1;
+}
+
+// ==============================================================================
+// SERVICE 3: Route Geometry Service (gRPC Interface)
+// Route sequence, stops, geofences, and segment distances
+// ==============================================================================
+
+service RouteGeometryService {
+  // Retrieve full route stop sequence and segment matrix
+  rpc GetRouteDetails (RouteDetailsRequest) returns (RouteDetailsResponse);
+
+  // Find nearest transit stop for a given GPS coordinate
+  rpc FindNearestStop (NearestStopRequest) returns (NearestStopResponse);
+
+  // List all operational transit routes
+  rpc ListRoutes (ListRoutesRequest) returns (ListRoutesResponse);
+}
+
+message RouteDetailsRequest {
+  string route_id = 1;
+}
+
+message StopInfo {
+  string stop_id = 1;
+  string stop_name = 2;
+  int32 sequence = 3;
+  double latitude = 4;
+  double longitude = 5;
+  int32 geofence_radius_meters = 6;
+  int32 expected_travel_sec_from_prev = 7;
+  int32 distance_meters_from_prev = 8;
+  int32 scheduled_dwell_time_sec = 9;
+}
+
+message RouteDetailsResponse {
+  string route_id = 1;
+  string route_short_name = 2;
+  string route_long_name = 3;
+  string start_terminal = 4;
+  string end_terminal = 5;
+  double total_distance_km = 6;
+  int32 nominal_transit_time_min = 7;
+  repeated StopInfo stops = 8;
+}
+
+message NearestStopRequest {
+  double latitude = 1;
+  double longitude = 2;
+  double max_radius_meters = 3;
+}
+
+message NearestStopResponse {
+  bool found = 1;
+  string stop_id = 2;
+  string stop_name = 3;
+  double distance_meters = 4;
+  bool within_geofence = 5;
+}
+
+message ListRoutesRequest {
+  bool active_only = 1;
+}
+
+message RouteSummary {
+  string route_id = 1;
+  string route_short_name = 2;
+  string route_long_name = 3;
+  double total_distance_km = 4;
+  int32 stop_count = 5;
+}
+
+message ListRoutesResponse {
+  repeated RouteSummary routes = 1;
+}
+

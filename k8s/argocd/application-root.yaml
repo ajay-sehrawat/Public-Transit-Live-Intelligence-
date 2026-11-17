@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: transit-system-production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ajaysehrawat/public-transit-cloud-s11.git
+    targetRevision: main
+    path: k8s/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: transit-system
+  syncPolicy:
+    automated:
+      prune: true     # Automatically deletes resources removed from Git
+      selfHeal: true  # Reverts any manual kubectl edits back to Git state (Enforces Req d)
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+

@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-adapter
+  namespace: transit-system
+  labels:
+    app: event-adapter
+    tier: critical-processor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: event-adapter
+  template:
+    metadata:
+      labels:
+        app: event-adapter
+        tier: critical-processor
+    spec:
+      containers:
+      - name: event-adapter
+        image: gcr.io/transit-s11-prod/event-adapter:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8004
+          name: http
+        envFrom:
+        - configMapRef:
+            name: transit-global-config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-adapter-service
+  namespace: transit-system
+  labels:
+    app: event-adapter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8004
+    name: http
+    targetPort: 8004
+  selector:
+    app: event-adapter
+

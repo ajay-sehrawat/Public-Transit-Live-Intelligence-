@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vehicle-registry
+  namespace: transit-system
+  labels:
+    app: vehicle-registry
+    tier: microservice
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vehicle-registry
+  template:
+    metadata:
+      labels:
+        app: vehicle-registry
+        tier: microservice
+    spec:
+      containers:
+      - name: vehicle-registry
+        image: gcr.io/transit-s11-prod/vehicle-registry:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+          name: http
+        - containerPort: 50051
+          name: grpc
+        envFrom:
+        - configMapRef:
+            name: transit-global-config
+        - secretRef:
+            name: transit-db-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vehicle-registry-service
+  namespace: transit-system
+  labels:
+    app: vehicle-registry
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    name: http
+    targetPort: 8001
+  - port: 50051
+    name: grpc
+    targetPort: 50051
+  selector:
+    app: vehicle-registry
+

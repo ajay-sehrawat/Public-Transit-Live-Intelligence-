@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S11: Public Transportation Live Tracking & Arrival Analytics</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --card-bg: #334155;
+      --accent-blue: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-red: #f87171;
+      --accent-yellow: #fbbf24;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-primary); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    header {
+      background-color: var(--bg-secondary);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #475569;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; }
+    .status-badge { background: #065f46; color: var(--accent-green); padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+
+    .main-container { display: flex; flex: 1; overflow: hidden; }
+    #map { flex: 2; height: 100%; z-index: 1; }
+
+    .sidebar {
+      flex: 1;
+      max-width: 480px;
+      min-width: 380px;
+      background: var(--bg-secondary);
+      border-left: 1px solid #475569;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .kpi-card { background: var(--card-bg); padding: 12px; border-radius: 8px; text-align: center; }
+    .kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--accent-blue); }
+    .kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
+
+    .section-title { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; color: var(--accent-blue); margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .panel-card { background: var(--card-bg); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+
+    .alert-banner { background: #7f1d1d; border-left: 4px solid var(--accent-red); padding: 10px 14px; border-radius: 6px; margin-bottom: 8px; font-size: 0.85rem; }
+    .alert-title { font-weight: 700; color: var(--accent-red); margin-bottom: 4px; display: flex; justify-content: space-between; }
+
+    .arrival-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #475569; }
+    .arrival-row:last-child { border-bottom: none; }
+    .bus-badge { background: #0284c7; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 0.8rem; }
+    .eta-badge { font-size: 1.1rem; font-weight: 800; color: var(--accent-green); }
+    .eta-delayed { color: var(--accent-red); }
+
+    .crowd-pill { font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+    .crowd-LOW { background: #065f46; color: var(--accent-green); }
+    .crowd-MODERATE { background: #854d0e; color: var(--accent-yellow); }
+    .crowd-HIGH, .crowd-SURGE { background: #991b1b; color: var(--accent-red); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🚌 Public Transit Live Intelligence (S11)</h1>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span class="status-badge" id="backend-status">● Live Feed Active</span>
+      <span style="font-size:0.8rem; color:var(--text-muted);" id="last-updated">Updating...</span>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="map"></div>
+
+    <div class="sidebar">
+      <!-- KPI Stats -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-active-buses">4</div>
+          <div class="kpi-label">Active Buses</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-avg-speed">32.4</div>
+          <div class="kpi-label">Avg Speed (km/h)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-alerts-count">0</div>
+          <div class="kpi-label">Active Delays</div>
+        </div>
+      </div>
+
+      <!-- Live Delay Alerts Panel (Service 7 - Serverless Cloud Function) -->
+      <div>
+        <div class="section-title">🚨 Active Transit Disruption Alerts (Service 7 Serverless)</div>
+        <div id="alerts-container">
+          <div style="font-size:0.85rem; color:var(--text-muted); padding:8px 0;">No active transit delays reported. All fleets on schedule.</div>
+        </div>
+      </div>
+
+      <!-- Real-Time Arrival Countdown Board (Service 5 - Flink Stream Processor) -->
+      <div>
+        <div class="section-title">
+          <span>⏱ Live Stop Arrival Estimates (Service 5 Flink)</span>
+        </div>
+        <div class="panel-card" id="arrivals-container">
+          <div class="arrival-row">
+            <div>
+              <span class="bus-badge">BUS-101</span>
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Route 1A ➔ BITS Main Gate</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="eta-badge" id="eta-bus-101">2 mins</div>
+              <div style="font-size:0.75rem; color:var(--accent-green);">ON TIME</div>
+            </div>
+          </div>
+          <div class="arrival-row">
+            <div>
+              <span class="bus-badge">BUS-201</span>
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Route 2B ➔ Clock Tower</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="eta-badge" id="eta-bus-201">5 mins</div>
+              <div style="font-size:0.75rem; color:var(--accent-green);">ON TIME</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Passenger Demand Density (Service 6 - NoSQL Firestore) -->
+      <div>
+        <div class="section-title">👥 Station Crowd Index (Service 6 NoSQL Firestore)</div>
+        <div class="panel-card" id="demand-container">
+          <div class="arrival-row">
+            <div><strong>BITS Main Gate</strong><div style="font-size:0.75rem; color:var(--text-muted);">Capacity: 120 pax</div></div>
+            <div><span class="crowd-pill crowd-MODERATE">MODERATE (35)</span></div>
+          </div>
+          <div class="arrival-row">
+            <div><strong>Pilani Railway Station</strong><div style="font-size:0.75rem; color:var(--text-muted);">Capacity: 100 pax</div></div>
+            <div><span class="crowd-pill crowd-LOW">LOW (12)</span></div>
+          </div>
+          <div class="arrival-row">
+            <div><strong>BITS Clock Tower</strong><div style="font-size:0.75rem; color:var(--text-muted);">Capacity: 150 pax</div></div>
+            <div><span class="crowd-pill crowd-HIGH">HIGH (64)</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Initialize Map centered at BITS Pilani area
+    const map = L.map('map').setView([28.3638, 75.5872], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const busMarkers = {};
+    const stopMarkers = {};
+
+    // Custom Icons
+    const busIcon = L.divIcon({
+      className: 'bus-marker',
+      html: '<div style="background:#0284c7; color:white; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:bold; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.5);">🚌 BUS</div>',
+      iconSize: [50, 24]
+    });
+
+    const stopIcon = L.divIcon({
+      className: 'stop-marker',
+      html: '<div style="background:#dc2626; width:12px; height:12px; border-radius:50%; border:2px solid white;"></div>',
+      iconSize: [12, 12]
+    });
+
+    async function fetchLiveFeed() {
+      try {
+        const res = await fetch('/api/v1/analytics/live-feed');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // 1. Update KPI numbers
+        document.getElementById('kpi-active-buses').textContent = data.kpis.active_buses;
+        document.getElementById('kpi-avg-speed').textContent = data.kpis.avg_speed_kmh;
+        document.getElementById('kpi-alerts-count').textContent = data.alerts.length;
+        document.getElementById('last-updated').textContent = 'Last synced: ' + new Date().toLocaleTimeString();
+
+        // 2. Plot Transit Stops
+        if (data.stops && Object.keys(stopMarkers).length === 0) {
+          data.stops.forEach(s => {
+            const marker = L.marker([s.latitude, s.longitude], { icon: stopIcon })
+              .bindPopup(`<b>${s.stop_name}</b><br>Stop ID: ${s.stop_id}<br>Geofence: ${s.geofence_radius_meters}m`)
+              .addTo(map);
+            stopMarkers[s.stop_id] = marker;
+
+            // Draw geofence circle
+            L.circle([s.latitude, s.longitude], {
+              radius: s.geofence_radius_meters,
+              color: '#38bdf8',
+              fillColor: '#38bdf8',
+              fillOpacity: 0.1,
+              weight: 1
+            }).addTo(map);
+          });
+        }
+
+        // 3. Plot & Animate Buses
+        data.buses.forEach(b => {
+          if (!busMarkers[b.bus_id]) {
+            busMarkers[b.bus_id] = L.marker([b.latitude, b.longitude], { icon: busIcon })
+              .bindPopup(`<b>${b.bus_id}</b> (${b.route_id})<br>Speed: ${b.speed_kmh} km/h<br>Next Stop: ${b.next_stop_name}<br>ETA: ${b.eta_seconds}s`)
+              .addTo(map);
+          } else {
+            busMarkers[b.bus_id].setLatLng([b.latitude, b.longitude]);
+            busMarkers[b.bus_id].getPopup().setContent(`<b>${b.bus_id}</b> (${b.route_id})<br>Speed: ${b.speed_kmh} km/h<br>Next Stop: ${b.next_stop_name}<br>ETA: ${b.eta_seconds}s`);
+          }
+        });
+
+        // 4. Update Delay Alerts Panel
+        const alertsContainer = document.getElementById('alerts-container');
+        if (data.alerts.length > 0) {
+          alertsContainer.innerHTML = data.alerts.map(a => `
+            <div class="alert-banner">
+              <div class="alert-title">
+                <span>⚠️ ${a.severity} DELAY</span>
+                <span>${a.delay_minutes} min late</span>
+              </div>
+              <div>${a.message}</div>
+            </div>
+          `).join('');
+        } else {
+          alertsContainer.innerHTML = `<div style="font-size:0.85rem; color:var(--text-muted); padding:8px 0;">No active transit delays reported. All fleets on schedule.</div>`;
+        }
+
+        // 5. Update Arrival Countdown Board
+        const arrivalsContainer = document.getElementById('arrivals-container');
+        if (data.arrivals.length > 0) {
+          arrivalsContainer.innerHTML = data.arrivals.map(arr => `
+            <div class="arrival-row">
+              <div>
+                <span class="bus-badge">${arr.bus_id}</span>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">${arr.route_id} ➔ ${arr.next_stop_name}</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="eta-badge ${arr.status === 'DELAYED' ? 'eta-delayed' : ''}">${Math.round(arr.eta_seconds / 60)} mins</div>
+                <div style="font-size:0.75rem; color:${arr.status === 'DELAYED' ? 'var(--accent-red)' : 'var(--accent-green)'}; font-weight:700;">${arr.status}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+      } catch (e) {
+        console.error("Live feed poll error:", e);
+      }
+    }
+
+    // Initial load and periodic polling every 3 seconds
+    fetchLiveFeed();
+    setInterval(fetchLiveFeed, 3000);
+  </script>
+</body>
+</html>

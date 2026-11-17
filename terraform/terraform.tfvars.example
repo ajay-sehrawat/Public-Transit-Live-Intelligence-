@@ -1,0 +1,30 @@
+# ==============================================================================
+# Google Cloud Platform (GCP) Configuration Variables
+# Rename this file to 'terraform.tfvars' and insert your specific GCP Project ID
+# ==============================================================================
+
+# Your GCP Project ID (find it using: gcloud config get-value project)
+project_id = "your-gcp-project-id"
+
+# Region and Zone: us-central1 qualifies for Google Cloud Always-Free Tier
+region = "us-central1"
+zone   = "us-central1-a"
+
+environment = "production"
+
+# GKE Cluster Settings ($0 management fee for 1 Zonal Cluster)
+cluster_name     = "transit-gke-cluster"
+gke_node_count   = 2
+gke_min_nodes    = 2
+gke_max_nodes    = 5
+gke_machine_type = "e2-medium"
+
+# Cloud SQL PostgreSQL Settings (Storage Product 1: Managed SQL)
+db_instance_name = "transit-postgres-db"
+db_tier          = "db-f1-micro"
+db_user          = "transit_admin"
+db_password      = "TransitSecurePass2026!"
+
+# Google Cloud Storage (Storage Product 3: Object Store)
+gcs_bucket_prefix = "transit-telemetry-raw"
+
