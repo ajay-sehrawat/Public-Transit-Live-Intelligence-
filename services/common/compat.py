@@ -158,3 +158,104 @@ else:
                 return fn
             return decorator
 
+
+def run_server(app, host: str = "0.0.0.0", port: int = 8080):
+    """Runs application with uvicorn if installed, or with Python standard library HTTPServer."""
+    try:
+        import uvicorn
+        uvicorn.run(app, host=host, port=port)
+    except ImportError:
+        import json
+        import urllib.parse
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+
+        class FastApiCompatHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                parsed = urllib.parse.urlparse(self.path)
+                path = parsed.path
+                handler = None
+
+                # Exact route match
+                if hasattr(app, "routes"):
+                    handler = app.routes.get(("GET", path))
+                    if not handler:
+                        # Parameterized route match e.g. /api/v1/analytics/arrivals/{stop_id}
+                        for (method, rpath), fn in app.routes.items():
+                            if method == "GET" and "{" in rpath:
+                                prefix = rpath.split("{")[0]
+                                if path.startswith(prefix):
+                                    param = path[len(prefix):]
+                                    handler = lambda: fn(param)
+                                    break
+
+                if handler:
+                    try:
+                        res = handler()
+                        if hasattr(res, "body"):
+                            body = res.body
+                            media_type = getattr(res, "media_type", "text/plain")
+                            status_code = getattr(res, "status_code", 200)
+                        elif isinstance(res, (dict, list)):
+                            body = json.dumps(res).encode("utf-8")
+                            media_type = "application/json"
+                            status_code = 200
+                        elif isinstance(res, str):
+                            body = res.encode("utf-8")
+                            media_type = "text/plain"
+                            status_code = 200
+                        else:
+                            body = str(res).encode("utf-8")
+                            media_type = "text/plain"
+                            status_code = 200
+
+                        self.send_response(status_code)
+                        self.send_header("Content-Type", media_type)
+                        self.send_header("Content-Length", str(len(body)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        self.wfile.write(body)
+                    except Exception as e:
+                        self.send_response(500)
+                        self.end_headers()
+                        self.wfile.write(str(e).encode("utf-8"))
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b"404 Not Found")
+
+            def do_POST(self):
+                parsed = urllib.parse.urlparse(self.path)
+                path = parsed.path
+                handler = None
+                if hasattr(app, "routes"):
+                    handler = app.routes.get(("POST", path))
+
+                if handler:
+                    try:
+                        res = handler()
+                        body = json.dumps(res).encode("utf-8") if isinstance(res, dict) else str(res).encode("utf-8")
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/json")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        self.wfile.write(body)
+                    except Exception as e:
+                        self.send_response(500)
+                        self.end_headers()
+                        self.wfile.write(str(e).encode("utf-8"))
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b"404 Not Found")
+
+            def log_message(self, format, *args):
+                pass
+
+        httpd = HTTPServer((host, port), FastApiCompatHandler)
+        print(f"[*] Native HTTP Server running on http://{host}:{port}/ (Press Ctrl+C to stop)")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            httpd.server_close()
+

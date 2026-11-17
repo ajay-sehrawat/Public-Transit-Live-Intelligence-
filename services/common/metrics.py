@@ -47,3 +47,4 @@ def generate_prometheus_metrics(service_name: str, request_counts: Dict[str, int
             lines.append(f'transit_{name}{{service="{service_name}"}} {val}')
 
     return "\n".join(lines) + "\n"
+

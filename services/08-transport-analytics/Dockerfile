@@ -22,3 +22,4 @@ HEALTHCHECK --interval=15s --timeout=3s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
 CMD ["python", "services/08-transport-analytics/main.py"]
+

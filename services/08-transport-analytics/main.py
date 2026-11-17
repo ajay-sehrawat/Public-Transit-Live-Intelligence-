@@ -468,7 +468,7 @@ def seed_demo_data():
 
 
 if __name__ == "__main__":
-    import uvicorn
+    from services.common.compat import run_server
     port = int(os.environ.get("PORT", 8080))
     logger.info(f"Starting Transport Analytics Public API on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    run_server(app, host="0.0.0.0", port=port)

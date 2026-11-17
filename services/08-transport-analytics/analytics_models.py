@@ -80,3 +80,4 @@ class FleetStatsResponse(BaseModel):
     avg_speed_kmh: float
     system_health: str = "OPTIMAL"
     timestamp: float
+

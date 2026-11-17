@@ -299,3 +299,4 @@ To satisfy the project constraint of zero cost, the architecture is tailored to 
 | **Req g** | 3 Distinct Cloud Storage Products | **COMPLIANT** | Cloud SQL (PostgreSQL), Cloud Firestore, Cloud Storage (GCS) |
 | **Req h** | Comprehensive Observability (Prom, Grafana, Loki) | **COMPLIANT** | `k8s/observability/` (Prometheus, Grafana Dashboards, Loki/Promtail) |
 | **Public** | Public Web Service with Interactive UI | **COMPLIANT** | `services/08-transport-analytics/` (Leaflet live map, ETA arrival board) |
+

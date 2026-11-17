@@ -155,3 +155,4 @@ spec:
     name: web
   selector:
     app: prometheus
+
