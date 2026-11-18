@@ -5,6 +5,8 @@ so that services and unit tests can run anywhere on vanilla Python.
 """
 
 import sys
+import socket
+import time
 
 try:
     from pydantic import BaseModel as RealBaseModel, Field as RealField, validator as real_validator
@@ -342,7 +344,25 @@ def run_server(app, host: str = "0.0.0.0", port: int = 8080):
         class ReuseHTTPServer(HTTPServer):
             allow_reuse_address = True
 
-        httpd = ReuseHTTPServer((host, port), FastApiCompatHandler)
+            def server_bind(self):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if hasattr(socket, "SO_REUSEPORT"):
+                    try:
+                        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                    except Exception:
+                        pass
+                super().server_bind()
+
+        httpd = None
+        for attempt in range(8):
+            try:
+                httpd = ReuseHTTPServer((host, port), FastApiCompatHandler)
+                break
+            except OSError as e:
+                if attempt == 7:
+                    raise
+                time.sleep(0.5)
+
         print(f"[*] Native HTTP Server running on http://{host}:{port}/ (Press Ctrl+C to stop)")
         try:
             httpd.serve_forever()
