@@ -106,37 +106,37 @@ def _record_metric(endpoint: str, latency_ms: float):
     REQUEST_LATENCIES[endpoint] = REQUEST_LATENCIES.get(endpoint, 0.0) + latency_ms
 
 
-def _seed_sample_transit_state():
-    """Seeds realistic transit telemetry into Firestore if empty."""
+def _seed_sample_transit_state(force: bool = False):
+    """Seeds realistic transit telemetry into Firestore matching the registered vehicle fleet."""
     est_col = firestore_client.collection("realtime_bus_estimates")
     existing = est_col.stream()
-    if not existing:
-        logger.info("Initializing Firestore with realistic demonstration transit state...")
-        # Seed 3 active buses
+    if force or not existing or len(existing) < 7:
+        logger.info("Initializing Firestore with all 7 active transit fleet buses...")
+        # 7 Active buses across ROUTE-1, ROUTE-2, ROUTE-3 (BUS-302 is in MAINTENANCE at depot)
         buses = [
             {
                 "bus_id": "BUS-101",
-                "route_id": "ROUTE-PILANI-01",
+                "route_id": "ROUTE-1",
                 "current_lat": 28.3640,
-                "current_lon": 28.3640,
+                "current_lon": 75.5878,
                 "latitude": 28.3640,
-                "longitude": 75.5875,
+                "longitude": 75.5878,
                 "speed_kmh": 34.2,
                 "next_stop_id": "STOP-002",
                 "next_stop_name": "BITS Clock Tower",
-                "eta_seconds": 160,
+                "eta_seconds": 120,
                 "delay_minutes": 0.0,
                 "status": "ON_TIME",
                 "updated_at": time.time()
             },
             {
                 "bus_id": "BUS-102",
-                "route_id": "ROUTE-PILANI-01",
+                "route_id": "ROUTE-1",
                 "current_lat": 28.3662,
                 "current_lon": 75.5910,
                 "latitude": 28.3662,
                 "longitude": 75.5910,
-                "speed_kmh": 12.0,
+                "speed_kmh": 11.5,
                 "next_stop_id": "STOP-004",
                 "next_stop_name": "Hostel Gate 2",
                 "eta_seconds": 450,
@@ -146,15 +146,75 @@ def _seed_sample_transit_state():
             },
             {
                 "bus_id": "BUS-103",
-                "route_id": "ROUTE-PILANI-02",
-                "current_lat": 28.3685,
-                "current_lon": 75.5940,
-                "latitude": 28.3685,
-                "longitude": 75.5940,
-                "speed_kmh": 28.5,
+                "route_id": "ROUTE-1",
+                "current_lat": 28.3635,
+                "current_lon": 75.5865,
+                "latitude": 28.3635,
+                "longitude": 75.5865,
+                "speed_kmh": 28.0,
+                "next_stop_id": "STOP-001",
+                "next_stop_name": "Pilani Bus Stand",
+                "eta_seconds": 180,
+                "delay_minutes": 0.0,
+                "status": "ON_TIME",
+                "updated_at": time.time()
+            },
+            {
+                "bus_id": "BUS-201",
+                "route_id": "ROUTE-2",
+                "current_lat": 28.3670,
+                "current_lon": 75.5920,
+                "latitude": 28.3670,
+                "longitude": 75.5920,
+                "speed_kmh": 31.0,
                 "next_stop_id": "STOP-005",
                 "next_stop_name": "CEERI Main Gate",
-                "eta_seconds": 220,
+                "eta_seconds": 210,
+                "delay_minutes": 0.0,
+                "status": "ON_TIME",
+                "updated_at": time.time()
+            },
+            {
+                "bus_id": "BUS-202",
+                "route_id": "ROUTE-2",
+                "current_lat": 28.3690,
+                "current_lon": 75.5945,
+                "latitude": 28.3690,
+                "longitude": 75.5945,
+                "speed_kmh": 25.5,
+                "next_stop_id": "STOP-003",
+                "next_stop_name": "Library Circle",
+                "eta_seconds": 320,
+                "delay_minutes": 0.0,
+                "status": "ON_TIME",
+                "updated_at": time.time()
+            },
+            {
+                "bus_id": "BUS-301",
+                "route_id": "ROUTE-3",
+                "current_lat": 28.3620,
+                "current_lon": 75.5850,
+                "latitude": 28.3620,
+                "longitude": 75.5850,
+                "speed_kmh": 36.8,
+                "next_stop_id": "STOP-001",
+                "next_stop_name": "Pilani Bus Stand",
+                "eta_seconds": 260,
+                "delay_minutes": 0.0,
+                "status": "ON_TIME",
+                "updated_at": time.time()
+            },
+            {
+                "bus_id": "BUS-401",
+                "route_id": "ROUTE-2",
+                "current_lat": 28.3655,
+                "current_lon": 75.5895,
+                "latitude": 28.3655,
+                "longitude": 75.5895,
+                "speed_kmh": 18.2,
+                "next_stop_id": "STOP-002",
+                "next_stop_name": "BITS Clock Tower",
+                "eta_seconds": 95,
                 "delay_minutes": 0.0,
                 "status": "ON_TIME",
                 "updated_at": time.time()
@@ -168,7 +228,7 @@ def _seed_sample_transit_state():
         alert_col.document("ALERT-BUS-102").set({
             "alert_id": "ALERT-BUS-102",
             "bus_id": "BUS-102",
-            "route_id": "ROUTE-PILANI-01",
+            "route_id": "ROUTE-1",
             "stop_id": "STOP-004",
             "stop_name": "Hostel Gate 2",
             "delay_minutes": 6.5,
@@ -463,7 +523,7 @@ def get_stops():
 @app.post("/api/v1/analytics/seed-demo")
 def seed_demo_data():
     """Utility endpoint to inject demonstration transit telemetry and delay incidents."""
-    _seed_sample_transit_state()
+    _seed_sample_transit_state(force=True)
     return {"status": "SUCCESS", "message": "Demo transit telemetry successfully seeded into Firestore."}
 
 
