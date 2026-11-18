@@ -260,6 +260,20 @@
           `).join('');
         }
 
+        // 6. Update Station Crowd Index Panel
+        const demandContainer = document.getElementById('demand-container');
+        if (demandContainer && data.stops && data.stops.length > 0) {
+          demandContainer.innerHTML = data.stops.map(s => `
+            <div class="arrival-row">
+              <div>
+                <strong>${s.stop_name}</strong>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${s.stop_id} • Geofence: ${s.geofence_radius_meters}m</div>
+              </div>
+              <div><span class="crowd-pill crowd-${s.crowd_level}">${s.crowd_level} (${s.current_crowd})</span></div>
+            </div>
+          `).join('');
+        }
+
       } catch (e) {
         console.error("Live feed poll error:", e);
       }

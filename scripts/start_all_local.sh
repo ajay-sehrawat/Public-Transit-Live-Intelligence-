@@ -17,6 +17,22 @@ echo "======================================================================"
 echo "  STARTING S11 PUBLIC TRANSIT INTELLIGENCE PLATFORM (LOCAL MODE)"
 echo "======================================================================"
 
+# Clean up any previously running transit services on these ports
+echo "[*] Cleaning up any previously running transit services..."
+for port in 8080 8001 8002 8003 8004 8006; do
+    pid=$(lsof -ti :$port 2>/dev/null || true)
+    if [ -n "$pid" ]; then
+        kill -9 "$pid" 2>/dev/null || true
+    fi
+done
+pkill -f "08-transport-analytics/main.py" 2>/dev/null || true
+pkill -f "01-vehicle-registry/main.py" 2>/dev/null || true
+pkill -f "02-gps-ingestion/main.py" 2>/dev/null || true
+pkill -f "03-route-service/main.py" 2>/dev/null || true
+pkill -f "04-event-adapter/main.py" 2>/dev/null || true
+pkill -f "06-passenger-demand/main.py" 2>/dev/null || true
+sleep 1.0
+
 # Function to launch a service
 launch_service() {
     local name="$1"
@@ -65,3 +81,4 @@ echo "======================================================================"
 echo "  To check live health:       python3 scripts/check_status.py"
 echo "  To stop all services:       ./scripts/stop_all_local.sh"
 echo "======================================================================"
+
