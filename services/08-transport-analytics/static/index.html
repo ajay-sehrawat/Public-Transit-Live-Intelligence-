@@ -69,6 +69,11 @@
     .crowd-LOW { background: #065f46; color: var(--accent-green); }
     .crowd-MODERATE { background: #854d0e; color: var(--accent-yellow); }
     .crowd-HIGH, .crowd-SURGE { background: #991b1b; color: var(--accent-red); }
+
+    /* Smooth bus marker gliding animation */
+    .leaflet-marker-icon.bus-marker {
+      transition: all 1.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
   </style>
 </head>
 <body>
@@ -170,17 +175,22 @@
 
     const busMarkers = {};
     const stopMarkers = {};
+    let routePolylineDrawn = false;
 
-    // Custom Icons
-    const busIcon = L.divIcon({
-      className: 'bus-marker',
-      html: '<div style="background:#0284c7; color:white; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:bold; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.5);">🚌 BUS</div>',
-      iconSize: [50, 24]
-    });
+    // Helper to generate dynamic live bus icon with current speed
+    function getBusIcon(busId, speed, isDelayed) {
+      const bg = isDelayed ? '#b91c1c' : '#0284c7';
+      return L.divIcon({
+        className: 'bus-marker',
+        html: `<div style="background:${bg}; color:white; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:bold; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.5); white-space:nowrap; display:flex; align-items:center; gap:4px;"><span>🚌</span> <span>${busId}</span> • <span>${speed}km/h</span></div>`,
+        iconSize: [95, 24],
+        iconAnchor: [47, 12]
+      });
+    }
 
     const stopIcon = L.divIcon({
       className: 'stop-marker',
-      html: '<div style="background:#dc2626; width:12px; height:12px; border-radius:50%; border:2px solid white;"></div>',
+      html: '<div style="background:#dc2626; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 8px rgba(220,38,38,0.8);"></div>',
       iconSize: [12, 12]
     });
 
@@ -196,9 +206,11 @@
         document.getElementById('kpi-alerts-count').textContent = data.alerts.length;
         document.getElementById('last-updated').textContent = 'Last synced: ' + new Date().toLocaleTimeString();
 
-        // 2. Plot Transit Stops
+        // 2. Plot Transit Stops & Route Path Polylines
         if (data.stops && Object.keys(stopMarkers).length === 0) {
+          const stopCoords = [];
           data.stops.forEach(s => {
+            stopCoords.push([s.latitude, s.longitude]);
             const marker = L.marker([s.latitude, s.longitude], { icon: stopIcon })
               .bindPopup(`<b>${s.stop_name}</b><br>Stop ID: ${s.stop_id}<br>Geofence: ${s.geofence_radius_meters}m`)
               .addTo(map);
@@ -209,21 +221,38 @@
               radius: s.geofence_radius_meters,
               color: '#38bdf8',
               fillColor: '#38bdf8',
-              fillOpacity: 0.1,
+              fillOpacity: 0.12,
               weight: 1
             }).addTo(map);
           });
+
+          // Draw animated route trajectory connecting campus stops
+          if (!routePolylineDrawn && stopCoords.length > 1) {
+            L.polyline(stopCoords, {
+              color: '#38bdf8',
+              weight: 3,
+              opacity: 0.6,
+              dashArray: '6, 8'
+            }).addTo(map);
+            routePolylineDrawn = true;
+          }
         }
 
-        // 3. Plot & Animate Buses
+        // 3. Plot & Animate Buses in Real Time
         data.buses.forEach(b => {
+          const isDelayed = b.status === 'DELAYED';
+          const icon = getBusIcon(b.bus_id, b.speed_kmh, isDelayed);
+          const popupContent = `<b>${b.bus_id}</b> (${b.route_id})<br>Speed: <b>${b.speed_kmh} km/h</b><br>Next Stop: <b>${b.next_stop_name}</b><br>ETA: <b>${b.eta_seconds}s</b><br>Status: <span style="color:${isDelayed ? '#f87171' : '#4ade80'}; font-weight:bold;">${b.status}</span>`;
+
           if (!busMarkers[b.bus_id]) {
-            busMarkers[b.bus_id] = L.marker([b.latitude, b.longitude], { icon: busIcon })
-              .bindPopup(`<b>${b.bus_id}</b> (${b.route_id})<br>Speed: ${b.speed_kmh} km/h<br>Next Stop: ${b.next_stop_name}<br>ETA: ${b.eta_seconds}s`)
+            busMarkers[b.bus_id] = L.marker([b.latitude, b.longitude], { icon: icon })
+              .bindPopup(popupContent)
               .addTo(map);
           } else {
+            // Smoothly move marker to new GPS coordinate and update speed badge
             busMarkers[b.bus_id].setLatLng([b.latitude, b.longitude]);
-            busMarkers[b.bus_id].getPopup().setContent(`<b>${b.bus_id}</b> (${b.route_id})<br>Speed: ${b.speed_kmh} km/h<br>Next Stop: ${b.next_stop_name}<br>ETA: ${b.eta_seconds}s`);
+            busMarkers[b.bus_id].setIcon(icon);
+            busMarkers[b.bus_id].getPopup().setContent(popupContent);
           }
         });
 
@@ -279,9 +308,9 @@
       }
     }
 
-    // Initial load and periodic polling every 3 seconds
+    // Initial load and periodic polling every 1.5 seconds for real-time smooth animation
     fetchLiveFeed();
-    setInterval(fetchLiveFeed, 3000);
+    setInterval(fetchLiveFeed, 1500);
   </script>
 </body>
 </html>

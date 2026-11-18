@@ -100,6 +100,126 @@ DEFAULT_STOPS = [
     }
 ]
 
+# Route waypoint networks for real-time bus trajectory simulation
+ROUTE_WAYPOINTS = {
+    "ROUTE-1": [
+        {"stop_id": "STOP-001", "name": "Pilani Bus Stand", "lat": 28.3638, "lon": 75.5872},
+        {"stop_id": "STOP-002", "name": "BITS Clock Tower", "lat": 28.3645, "lon": 75.5885},
+        {"stop_id": "STOP-003", "name": "Library Circle", "lat": 28.3658, "lon": 75.5901},
+        {"stop_id": "STOP-004", "name": "Hostel Gate 2", "lat": 28.3672, "lon": 75.5925},
+        {"stop_id": "STOP-005", "name": "CEERI Main Gate", "lat": 28.3695, "lon": 75.5950},
+    ],
+    "ROUTE-2": [
+        {"stop_id": "STOP-001", "name": "Pilani Bus Stand", "lat": 28.3638, "lon": 75.5872},
+        {"stop_id": "STOP-002", "name": "BITS Clock Tower", "lat": 28.3645, "lon": 75.5885},
+        {"stop_id": "STOP-004", "name": "Hostel Gate 2", "lat": 28.3672, "lon": 75.5925},
+        {"stop_id": "STOP-005", "name": "CEERI Main Gate", "lat": 28.3695, "lon": 75.5950},
+    ],
+    "ROUTE-3": [
+        {"stop_id": "STOP-005", "name": "CEERI Main Gate", "lat": 28.3695, "lon": 75.5950},
+        {"stop_id": "STOP-003", "name": "Library Circle", "lat": 28.3658, "lon": 75.5901},
+        {"stop_id": "STOP-002", "name": "BITS Clock Tower", "lat": 28.3645, "lon": 75.5885},
+        {"stop_id": "STOP-001", "name": "Pilani Bus Stand", "lat": 28.3638, "lon": 75.5872},
+    ]
+}
+
+# Live dynamic fleet simulation state
+import math
+import random
+import threading
+
+LIVE_FLEET_STATE = {
+    "BUS-101": {"route_id": "ROUTE-1", "lat": 28.3640, "lon": 75.5878, "target_idx": 1, "dir": 1, "speed": 34.0, "status": "ON_TIME", "delay": 0.0},
+    "BUS-102": {"route_id": "ROUTE-1", "lat": 28.3662, "lon": 75.5910, "target_idx": 3, "dir": 1, "speed": 11.5, "status": "DELAYED", "delay": 6.5},
+    "BUS-103": {"route_id": "ROUTE-1", "lat": 28.3690, "lon": 75.5945, "target_idx": 3, "dir": -1, "speed": 28.0, "status": "ON_TIME", "delay": 0.0},
+    "BUS-201": {"route_id": "ROUTE-2", "lat": 28.3642, "lon": 75.5880, "target_idx": 2, "dir": 1, "speed": 31.0, "status": "ON_TIME", "delay": 0.0},
+    "BUS-202": {"route_id": "ROUTE-2", "lat": 28.3670, "lon": 75.5920, "target_idx": 1, "dir": -1, "speed": 25.5, "status": "ON_TIME", "delay": 0.0},
+    "BUS-301": {"route_id": "ROUTE-3", "lat": 28.3692, "lon": 75.5948, "target_idx": 1, "dir": 1, "speed": 36.8, "status": "ON_TIME", "delay": 0.0},
+    "BUS-401": {"route_id": "ROUTE-2", "lat": 28.3648, "lon": 75.5890, "target_idx": 1, "dir": 1, "speed": 19.2, "status": "ON_TIME", "delay": 0.0},
+}
+
+
+def _run_live_bus_movement_engine():
+    """Background engine that continuously moves all active buses along their routes in real time."""
+    logger.info("[✓] Live Bus GPS Movement Simulation Engine started.")
+    est_col = firestore_client.collection("realtime_bus_estimates")
+
+    while True:
+        try:
+            for bus_id, state in LIVE_FLEET_STATE.items():
+                route_id = state["route_id"]
+                waypoints = ROUTE_WAYPOINTS.get(route_id, ROUTE_WAYPOINTS["ROUTE-1"])
+                target_idx = state["target_idx"]
+                target_wp = waypoints[target_idx]
+
+                cur_lat = state["lat"]
+                cur_lon = state["lon"]
+                tgt_lat = target_wp["lat"]
+                tgt_lon = target_wp["lon"]
+
+                dlat = tgt_lat - cur_lat
+                dlon = tgt_lon - cur_lon
+                dist = math.hypot(dlat, dlon)
+                dist_meters = dist * 111000
+
+                if dist < 0.00030 or dist_meters < 35:
+                    # Bus arrived at waypoint stop, advance to next
+                    next_idx = target_idx + state["dir"]
+                    if next_idx >= len(waypoints):
+                        state["dir"] = -1
+                        state["target_idx"] = len(waypoints) - 2
+                    elif next_idx < 0:
+                        state["dir"] = 1
+                        state["target_idx"] = 1
+                    else:
+                        state["target_idx"] = next_idx
+
+                    target_wp = waypoints[state["target_idx"]]
+                else:
+                    # Advance bus towards waypoint
+                    base_speed = 12.0 if state["status"] == "DELAYED" else 33.0
+                    current_speed = max(10.0, base_speed + random.uniform(-2.0, 2.0))
+                    state["speed"] = round(current_speed, 1)
+
+                    travel_meters = (current_speed / 3.6) * 1.5
+                    step_ratio = min(0.35, travel_meters / max(dist_meters, 1.0))
+
+                    state["lat"] = cur_lat + dlat * step_ratio
+                    state["lon"] = cur_lon + dlon * step_ratio
+
+                # Calculate live ETA
+                remaining_dist_meters = math.hypot(target_wp["lat"] - state["lat"], target_wp["lon"] - state["lon"]) * 111000
+                speed_ms = max(state["speed"], 8.0) / 3.6
+                eta_sec = max(15, int(remaining_dist_meters / speed_ms))
+
+                # Update Firestore in-memory document
+                doc_payload = {
+                    "bus_id": bus_id,
+                    "route_id": route_id,
+                    "current_lat": round(state["lat"], 6),
+                    "current_lon": round(state["lon"], 6),
+                    "latitude": round(state["lat"], 6),
+                    "longitude": round(state["lon"], 6),
+                    "speed_kmh": state["speed"],
+                    "next_stop_id": target_wp["stop_id"],
+                    "next_stop_name": target_wp["name"],
+                    "eta_seconds": eta_sec,
+                    "delay_minutes": state["delay"],
+                    "status": state["status"],
+                    "updated_at": time.time()
+                }
+                est_col.document(bus_id).set(doc_payload)
+
+            time.sleep(1.5)
+        except Exception as e:
+            logger.error(f"Error in bus movement engine: {e}")
+            time.sleep(2.0)
+
+
+# Start the background movement engine thread immediately
+_movement_thread = threading.Thread(target=_run_live_bus_movement_engine, daemon=True)
+_movement_thread.start()
+
 
 def _record_metric(endpoint: str, latency_ms: float):
     REQUEST_COUNTS[endpoint] = REQUEST_COUNTS.get(endpoint, 0) + 1
