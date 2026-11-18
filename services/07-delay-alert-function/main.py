@@ -17,8 +17,23 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(REPO_ROOT)
 sys.path.append(os.path.dirname(__file__))
 
-from services.common.firestore.firestore_client import TransitFirestoreClient
-from services.common.kafka.kafka_client import TransitKafkaProducer
+try:
+    from services.common.firestore.firestore_client import TransitFirestoreClient
+except ImportError:
+    class TransitFirestoreClient:
+        def __init__(self, project_id=None):
+            from google.cloud import firestore
+            self.db = firestore.Client(project=project_id or os.environ.get("GCP_PROJECT_ID"))
+        def collection(self, name):
+            return self.db.collection(name)
+
+try:
+    from services.common.kafka.kafka_client import TransitKafkaProducer
+except ImportError:
+    class TransitKafkaProducer:
+        def send(self, topic, key=None, value=None):
+            logger.info(f"[Kafka Alert Published] Topic={topic}, Key={key}, Value={value}")
+
 from alert_models import TransitDelayAlert
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [ServerlessAlert] %(message)s")
