@@ -171,109 +171,162 @@ def run_server(app, host: str = "0.0.0.0", port: int = 8080):
 
         class FastApiCompatHandler(BaseHTTPRequestHandler):
             def do_GET(self):
-                parsed = urllib.parse.urlparse(self.path)
-                path = parsed.path
-                handler = None
-
-                # Exact route match
-                if hasattr(app, "routes"):
-                    handler = app.routes.get(("GET", path))
-                    if not handler:
-                        # Parameterized route match e.g. /api/v1/analytics/arrivals/{stop_id}
-                        for (method, rpath), fn in app.routes.items():
-                            if method == "GET" and "{" in rpath:
-                                prefix = rpath.split("{")[0]
-                                if path.startswith(prefix):
-                                    param = path[len(prefix):]
-                                    handler = lambda: fn(param)
-                                    break
-
-                if handler:
-                    try:
-                        res = handler()
-                        if hasattr(res, "body"):
-                            body = res.body
-                            media_type = getattr(res, "media_type", "text/plain")
-                            status_code = getattr(res, "status_code", 200)
-                        elif isinstance(res, (dict, list)):
-                            body = json.dumps(res).encode("utf-8")
-                            media_type = "application/json"
-                            status_code = 200
-                        elif isinstance(res, str):
-                            body = res.encode("utf-8")
-                            media_type = "text/plain"
-                            status_code = 200
-                        else:
-                            body = str(res).encode("utf-8")
-                            media_type = "text/plain"
-                            status_code = 200
-
-                        self.send_response(status_code)
-                        self.send_header("Content-Type", media_type)
-                        self.send_header("Content-Length", str(len(body)))
-                        self.send_header("Access-Control-Allow-Origin", "*")
-                        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                        self.send_header("Pragma", "no-cache")
-                        self.send_header("Expires", "0")
-                        self.end_headers()
-                        self.wfile.write(body)
-                    except Exception as e:
-                        self.send_response(500)
-                        self.end_headers()
-                        self.wfile.write(str(e).encode("utf-8"))
-                else:
-                    self.send_response(404)
-                    self.end_headers()
-                    self.wfile.write(b"404 Not Found")
+                self._dispatch("GET")
 
             def do_POST(self):
+                self._dispatch("POST")
+
+            def do_PATCH(self):
+                self._dispatch("PATCH")
+
+            def do_PUT(self):
+                self._dispatch("PUT")
+
+            def do_DELETE(self):
+                self._dispatch("DELETE")
+
+            def do_OPTIONS(self):
+                self.send_response(200)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "*")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def _dispatch(self, method: str):
+                import inspect
                 parsed = urllib.parse.urlparse(self.path)
                 path = parsed.path
+                query_params = urllib.parse.parse_qs(parsed.query)
+
+                # Parse body if present
                 content_len = int(self.headers.get("Content-Length", 0))
                 post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 body_json = {}
-                try:
-                    body_json = json.loads(post_body.decode("utf-8")) if post_body else {}
-                except Exception:
-                    body_json = {}
+                if post_body:
+                    try:
+                        body_json = json.loads(post_body.decode("utf-8"))
+                    except Exception:
+                        body_json = {}
 
                 handler = None
+                path_params = {}
+
+                # 1. Exact route match
                 if hasattr(app, "routes"):
-                    handler = app.routes.get(("POST", path))
+                    handler = app.routes.get((method, path))
 
-                if handler:
-                    try:
-                        import inspect
-                        sig = inspect.signature(handler)
-                        if len(sig.parameters) > 0:
-                            first_param = list(sig.parameters.values())[0]
-                            param_type = first_param.annotation
-                            if param_type != inspect.Parameter.empty and callable(param_type):
-                                try:
-                                    arg = param_type(**body_json)
-                                except Exception:
-                                    arg = body_json
-                            else:
-                                arg = body_json
-                            res = handler(arg)
-                        else:
-                            res = handler()
+                # 2. Parameterized route match (e.g., /api/v1/vehicles/{bus_id})
+                if not handler and hasattr(app, "routes"):
+                    req_parts = [p for p in path.split("/") if p]
+                    for (m, rpath), fn in app.routes.items():
+                        if m == method and "{" in rpath:
+                            pattern_parts = [p for p in rpath.split("/") if p]
+                            if len(pattern_parts) == len(req_parts):
+                                matched = True
+                                current_params = {}
+                                for pp, rp in zip(pattern_parts, req_parts):
+                                    if pp.startswith("{") and pp.endswith("}"):
+                                        param_name = pp[1:-1]
+                                        current_params[param_name] = rp
+                                    elif pp != rp:
+                                        matched = False
+                                        break
+                                if matched:
+                                    handler = fn
+                                    path_params = current_params
+                                    break
 
-                        body = json.dumps(res).encode("utf-8") if isinstance(res, (dict, list)) else (res.body if hasattr(res, "body") else str(res).encode("utf-8"))
-                        self.send_response(200)
-                        self.send_header("Content-Type", "application/json")
-                        self.send_header("Content-Length", str(len(body)))
-                        self.send_header("Access-Control-Allow-Origin", "*")
-                        self.end_headers()
-                        self.wfile.write(body)
-                    except Exception as e:
-                        self.send_response(500)
-                        self.end_headers()
-                        self.wfile.write(str(e).encode("utf-8"))
-                else:
+                if not handler:
                     self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
                     self.end_headers()
-                    self.wfile.write(b"404 Not Found")
+                    self.wfile.write(json.dumps({"detail": f"Path '{path}' with method '{method}' not found."}).encode("utf-8"))
+                    return
+
+                # Invoke handler
+                try:
+                    sig = inspect.signature(handler)
+                    kwargs = {}
+
+                    for p_name, param in sig.parameters.items():
+                        if p_name in path_params:
+                            kwargs[p_name] = path_params[p_name]
+                        elif p_name in query_params:
+                            kwargs[p_name] = query_params[p_name][0]
+                        elif param.annotation != inspect.Parameter.empty and callable(param.annotation):
+                            try:
+                                kwargs[p_name] = param.annotation(**body_json)
+                            except Exception:
+                                kwargs[p_name] = body_json
+                        elif p_name in ("payload", "request", "data"):
+                            kwargs[p_name] = body_json
+                        elif p_name in body_json:
+                            kwargs[p_name] = body_json[p_name]
+
+                    if kwargs:
+                        res = handler(**kwargs)
+                    elif len(sig.parameters) == 1:
+                        first_p = list(sig.parameters.values())[0]
+                        if path_params:
+                            res = handler(list(path_params.values())[0])
+                        elif first_p.annotation != inspect.Parameter.empty and callable(first_p.annotation):
+                            try:
+                                res = handler(first_p.annotation(**body_json))
+                            except Exception:
+                                res = handler(body_json)
+                        else:
+                            res = handler(body_json)
+                    else:
+                        res = handler()
+
+                    # Format response
+                    status_code = 200
+                    media_type = "application/json"
+                    if res is None:
+                        body = b""
+                        status_code = 204
+                    elif hasattr(res, "body"):
+                        body = res.body
+                        media_type = getattr(res, "media_type", "text/plain")
+                        status_code = getattr(res, "status_code", 200)
+                    elif isinstance(res, (dict, list)):
+                        body = json.dumps(res).encode("utf-8")
+                        media_type = "application/json"
+                        status_code = 200
+                    elif isinstance(res, str):
+                        body = res.encode("utf-8")
+                        media_type = "text/plain"
+                        status_code = 200
+                    else:
+                        body = str(res).encode("utf-8")
+                        media_type = "text/plain"
+                        status_code = 200
+
+                    self.send_response(status_code)
+                    self.send_header("Content-Type", media_type)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    self.send_header("Pragma", "no-cache")
+                    self.send_header("Expires", "0")
+                    self.end_headers()
+                    if body:
+                        self.wfile.write(body)
+
+                except HTTPException as he:
+                    self.send_response(he.status_code)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"detail": he.detail}).encode("utf-8"))
+                except Exception as ex:
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"detail": str(ex)}).encode("utf-8"))
 
             def log_message(self, format, *args):
                 pass
