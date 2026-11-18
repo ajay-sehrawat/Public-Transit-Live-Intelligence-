@@ -88,6 +88,48 @@
     .btn-purple { background: #6d28d9; border-color: #a78bfa; }
     .btn-purple:hover { background: #5b21b6; }
 
+    /* Control Center Form Controls */
+    .form-group { margin-bottom: 8px; }
+    .form-group label {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+    .form-input, .form-select {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid #475569;
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      box-sizing: border-box;
+    }
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+    .btn-block {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      margin-top: 6px;
+    }
+    .btn-primary-block { background: #0284c7; color: white; }
+    .btn-primary-block:hover { background: #0369a1; }
+    .btn-danger-block { background: #b91c1c; color: white; }
+    .btn-danger-block:hover { background: #991b1b; }
+    .btn-purple-block { background: #6d28d9; color: white; }
+    .btn-purple-block:hover { background: #5b21b6; }
+
     /* Smooth bus marker gliding animation */
     .leaflet-marker-icon.bus-marker {
       transition: all 1.3s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -164,7 +206,7 @@
         </div>
       </div>
 
-      <!-- Passenger Demand Density (Service 6 - NoSQL Firestore) -->
+      <!-- Station Crowd Index (Service 6 NoSQL Firestore) -->
       <div>
         <div class="section-title">👥 Station Crowd Index (Service 6 NoSQL Firestore)</div>
         <div class="panel-card" id="demand-container">
@@ -180,6 +222,84 @@
             <div><strong>BITS Clock Tower</strong><div style="font-size:0.75rem; color:var(--text-muted);">Capacity: 150 pax</div></div>
             <div><span class="crowd-pill crowd-HIGH">HIGH (64)</span></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Live Transit Dispatch & Operations Control Center -->
+      <div>
+        <div class="section-title">🎮 Operations & Dispatch Control</div>
+
+        <!-- 1. Dispatch New Bus -->
+        <div class="panel-card">
+          <div style="font-weight:700; font-size:0.85rem; color:var(--accent-blue); margin-bottom:8px;">➕ Dispatch New Bus to Road</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group">
+              <label>Bus ID</label>
+              <input type="text" id="dispatch-bus-id" value="BUS-505" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Route</label>
+              <select id="dispatch-route" class="form-select">
+                <option value="ROUTE-1">ROUTE-1 (Campus Loop)</option>
+                <option value="ROUTE-2">ROUTE-2 (Pilani Shuttle)</option>
+                <option value="ROUTE-3">ROUTE-3 (Station Express)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group">
+              <label>Model</label>
+              <input type="text" id="dispatch-model" value="Tata Starbus EV" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Capacity</label>
+              <input type="number" id="dispatch-capacity" value="50" class="form-input">
+            </div>
+          </div>
+          <button onclick="handleDispatchSubmit()" class="btn-block btn-primary-block">🚀 Dispatch Bus to Route</button>
+        </div>
+
+        <!-- 2. Simulate Delay Disruption -->
+        <div class="panel-card">
+          <div style="font-weight:700; font-size:0.85rem; color:var(--accent-red); margin-bottom:8px;">⚠️ Simulate Traffic Incident / Delay</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group">
+              <label>Select Bus</label>
+              <select id="delay-bus-select" class="form-select">
+                <option value="BUS-101">BUS-101</option>
+                <option value="BUS-201">BUS-201</option>
+                <option value="BUS-301">BUS-301</option>
+                <option value="BUS-401">BUS-401</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Delay (Mins)</label>
+              <input type="number" id="delay-mins" value="8.5" step="0.5" class="form-input">
+            </div>
+          </div>
+          <button onclick="handleDelaySubmit()" class="btn-block btn-danger-block">🚨 Broadcast Delay Alert</button>
+        </div>
+
+        <!-- 3. Simulate Passenger Surge -->
+        <div class="panel-card">
+          <div style="font-weight:700; font-size:0.85rem; color:var(--accent-yellow); margin-bottom:8px;">👥 Simulate Station Crowd Surge</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group">
+              <label>Transit Stop</label>
+              <select id="crowd-stop-select" class="form-select">
+                <option value="STOP-002">BITS Clock Tower</option>
+                <option value="STOP-001">Pilani Bus Stand</option>
+                <option value="STOP-003">Library Circle</option>
+                <option value="STOP-004">Hostel Gate 2</option>
+                <option value="STOP-005">CEERI Main Gate</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Passengers</label>
+              <input type="number" id="crowd-count" value="145" class="form-input">
+            </div>
+          </div>
+          <button onclick="handleCrowdSubmit()" class="btn-block btn-purple-block">👥 Trigger Rush Hour Surge</button>
         </div>
       </div>
 
@@ -324,6 +444,14 @@
           `).join('');
         }
 
+        // 7. Update Delay Bus Select Dropdown with active buses
+        const delaySelect = document.getElementById('delay-bus-select');
+        if (delaySelect && data.buses && data.buses.length !== delaySelect.options.length) {
+          const curVal = delaySelect.value;
+          delaySelect.innerHTML = data.buses.map(b => `<option value="${b.bus_id}">${b.bus_id} (${b.route_id})</option>`).join('');
+          if (curVal) delaySelect.value = curVal;
+        }
+
       } catch (e) {
         console.error("Live feed poll error:", e);
       }
@@ -379,6 +507,66 @@
         });
         const json = await res.json();
         alert(`[👥 Crowd Surged] BITS Clock Tower crowd set to ${json.crowd_level} (${json.passenger_count} pax).`);
+        fetchLiveFeed();
+      } catch (e) {
+        alert("Error updating crowd: " + e);
+      }
+    }
+
+    // Sidebar Form Action Handlers
+    async function handleDispatchSubmit() {
+      const busId = document.getElementById('dispatch-bus-id').value.trim() || 'BUS-505';
+      const routeId = document.getElementById('dispatch-route').value;
+      const model = document.getElementById('dispatch-model').value.trim() || 'Tata Starbus EV';
+      const capacity = parseInt(document.getElementById('dispatch-capacity').value) || 50;
+
+      try {
+        const res = await fetch('/api/v1/analytics/dispatch-bus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bus_id: busId, route_id: routeId, model: model, capacity: capacity })
+        });
+        const json = await res.json();
+        alert(`[✓ SUCCESS] ${json.message}`);
+        // Advance default bus number for next click
+        const nextNum = parseInt(busId.replace('BUS-', '')) + 1 || 506;
+        document.getElementById('dispatch-bus-id').value = `BUS-${nextNum}`;
+        fetchLiveFeed();
+      } catch (e) {
+        alert("Error dispatching bus: " + e);
+      }
+    }
+
+    async function handleDelaySubmit() {
+      const busId = document.getElementById('delay-bus-select').value;
+      const delayMins = parseFloat(document.getElementById('delay-mins').value) || 8.5;
+
+      try {
+        const res = await fetch('/api/v1/analytics/trigger-delay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bus_id: busId, delay_minutes: delayMins })
+        });
+        const json = await res.json();
+        alert(`[🚨 ALERT DISPATCHED] Bus ${busId} flagged delayed by ${delayMins} mins.`);
+        fetchLiveFeed();
+      } catch (e) {
+        alert("Error triggering delay: " + e);
+      }
+    }
+
+    async function handleCrowdSubmit() {
+      const stopId = document.getElementById('crowd-stop-select').value;
+      const count = parseInt(document.getElementById('crowd-count').value) || 145;
+
+      try {
+        const res = await fetch('/api/v1/analytics/simulate-crowd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stop_id: stopId, passenger_count: count })
+        });
+        const json = await res.json();
+        alert(`[👥 CROWD SURGED] Stop ${stopId} crowd set to ${json.crowd_level} (${count} pax).`);
         fetchLiveFeed();
       } catch (e) {
         alert("Error updating crowd: " + e);
