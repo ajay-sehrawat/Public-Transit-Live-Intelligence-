@@ -187,10 +187,17 @@ def _run_live_bus_movement_engine():
                     state["lat"] = cur_lat + dlat * step_ratio
                     state["lon"] = cur_lon + dlon * step_ratio
 
-                # Calculate live ETA
+                # Calculate live ETA:
+                # 1. Base transit travel time to next stop (proportional to remaining distance along route leg)
                 remaining_dist_meters = math.hypot(target_wp["lat"] - state["lat"], target_wp["lon"] - state["lon"]) * 111000
-                speed_ms = max(state["speed"], 8.0) / 3.6
-                eta_sec = max(15, int(remaining_dist_meters / speed_ms))
+                leg_progress = min(1.0, max(0.08, remaining_dist_meters / 200.0))
+                # Base travel time scales between 25s (near stop) and 180s (3 mins at start of leg)
+                base_transit_sec = max(25, int(180 * leg_progress))
+
+                # 2. Add accumulated transit delay (delay_minutes * 60)
+                delay_mins = float(state.get("delay", 0.0))
+                delay_sec = int(delay_mins * 60)
+                eta_sec = base_transit_sec + delay_sec
 
                 # Update Firestore in-memory document
                 doc_payload = {
@@ -204,7 +211,7 @@ def _run_live_bus_movement_engine():
                     "next_stop_id": target_wp["stop_id"],
                     "next_stop_name": target_wp["name"],
                     "eta_seconds": eta_sec,
-                    "delay_minutes": state["delay"],
+                    "delay_minutes": delay_mins,
                     "status": state["status"],
                     "updated_at": time.time()
                 }
@@ -462,6 +469,14 @@ def get_live_feed():
             speed = float(d.get("speed_kmh", 0.0))
             total_speed += speed
 
+            delay_mins = float(d.get("delay_minutes", 0.0))
+            eta_sec = int(d.get("eta_seconds", 180))
+
+            # Guarantee delayed buses strictly reflect delay time in ETA
+            delay_sec = int(delay_mins * 60)
+            if delay_sec > 0 and eta_sec < (delay_sec + 25):
+                eta_sec = delay_sec + max(25, eta_sec)
+
             item = {
                 "bus_id": bus_id,
                 "route_id": d.get("route_id", "ROUTE-PILANI-01"),
@@ -470,7 +485,8 @@ def get_live_feed():
                 "speed_kmh": round(speed, 1),
                 "next_stop_id": d.get("next_stop_id", "STOP-001"),
                 "next_stop_name": d.get("next_stop_name", "Transit Stop"),
-                "eta_seconds": int(d.get("eta_seconds", 300)),
+                "eta_seconds": eta_sec,
+                "delay_minutes": delay_mins,
                 "status": d.get("status", "ON_TIME")
             }
             buses.append(item)
@@ -480,9 +496,9 @@ def get_live_feed():
                 "route_id": d.get("route_id", "ROUTE-PILANI-01"),
                 "next_stop_id": d.get("next_stop_id", "STOP-001"),
                 "next_stop_name": d.get("next_stop_name", "Transit Stop"),
-                "eta_seconds": int(d.get("eta_seconds", 300)),
-                "status": d.get("status", "ON_TIME"),
-                "delay_minutes": float(d.get("delay_minutes", 0.0))
+                "eta_seconds": eta_sec,
+                "delay_minutes": delay_mins,
+                "status": d.get("status", "ON_TIME")
             })
 
         arrivals.sort(key=lambda x: x["eta_seconds"])
@@ -568,14 +584,20 @@ def get_stop_arrivals(stop_id: str):
         for snap in bus_docs:
             d = snap.to_dict() or {}
             if d.get("next_stop_id") == stop_id or not d.get("next_stop_id"):
+                delay_mins = float(d.get("delay_minutes", 0.0))
+                eta_sec = int(d.get("eta_seconds", 180))
+                delay_sec = int(delay_mins * 60)
+                if delay_sec > 0 and eta_sec < (delay_sec + 25):
+                    eta_sec = delay_sec + max(25, eta_sec)
+
                 arrivals.append({
                     "bus_id": d.get("bus_id", snap.id),
                     "route_id": d.get("route_id", "ROUTE-PILANI-01"),
                     "next_stop_id": stop_id,
                     "next_stop_name": stop_name,
-                    "eta_seconds": int(d.get("eta_seconds", 300)),
+                    "eta_seconds": eta_sec,
                     "status": d.get("status", "ON_TIME"),
-                    "delay_minutes": float(d.get("delay_minutes", 0.0))
+                    "delay_minutes": delay_mins
                 })
 
         arrivals.sort(key=lambda x: x["eta_seconds"])
@@ -711,28 +733,65 @@ def trigger_transit_delay(payload: Dict[str, Any] = None):
         payload = {}
 
     bus_id = str(payload.get("bus_id") or "BUS-101")
-    delay_mins = float(payload.get("delay_minutes") or 8.5)
+    delay_mins = float(payload.get("delay_minutes") if payload.get("delay_minutes") is not None else 8.5)
     reason = str(payload.get("reason") or "Heavy traffic bottleneck near Library Circle.")
 
-    if bus_id in LIVE_FLEET_STATE:
-        LIVE_FLEET_STATE[bus_id]["status"] = "DELAYED"
-        LIVE_FLEET_STATE[bus_id]["delay"] = delay_mins
-        LIVE_FLEET_STATE[bus_id]["speed"] = 9.0
-
-    # Write alert to Firestore delay_alerts
-    alert_id = f"ALERT-{bus_id}-{int(time.time())}"
+    est_col = firestore_client.collection("realtime_bus_estimates")
     alert_col = firestore_client.collection("delay_alerts")
-    alert_col.document(alert_id).set({
-        "alert_id": alert_id,
-        "bus_id": bus_id,
-        "route_id": LIVE_FLEET_STATE.get(bus_id, {}).get("route_id", "ROUTE-1"),
-        "stop_id": "STOP-003",
-        "stop_name": "Library Circle",
-        "delay_minutes": delay_mins,
-        "severity": "CRITICAL" if delay_mins > 10 else "HIGH",
-        "message": f"Transit Alert: Bus {bus_id} is delayed by {delay_mins} mins. {reason}",
-        "timestamp": time.time()
-    })
+
+    if bus_id in LIVE_FLEET_STATE:
+        state = LIVE_FLEET_STATE[bus_id]
+        if delay_mins > 0:
+            state["status"] = "DELAYED"
+            state["delay"] = delay_mins
+            state["speed"] = 9.0
+        else:
+            state["status"] = "ON_TIME"
+            state["delay"] = 0.0
+            state["speed"] = 32.0
+
+        target_wp = ROUTE_WAYPOINTS.get(state["route_id"], ROUTE_WAYPOINTS["ROUTE-1"])[state["target_idx"]]
+        base_transit_sec = 120
+        delay_sec = int(delay_mins * 60)
+        new_eta_sec = base_transit_sec + delay_sec
+
+        est_col.document(bus_id).set({
+            "bus_id": bus_id,
+            "route_id": state["route_id"],
+            "current_lat": round(state["lat"], 6),
+            "current_lon": round(state["lon"], 6),
+            "latitude": round(state["lat"], 6),
+            "longitude": round(state["lon"], 6),
+            "speed_kmh": state["speed"],
+            "next_stop_id": target_wp["stop_id"],
+            "next_stop_name": target_wp["name"],
+            "eta_seconds": new_eta_sec,
+            "delay_minutes": delay_mins,
+            "status": state["status"],
+            "updated_at": time.time()
+        })
+
+    # Alert management in delay_alerts collection
+    alert_id = f"ALERT-{bus_id}"
+    if delay_mins > 0:
+        alert_col.document(alert_id).set({
+            "alert_id": alert_id,
+            "bus_id": bus_id,
+            "route_id": LIVE_FLEET_STATE.get(bus_id, {}).get("route_id", "ROUTE-1"),
+            "stop_id": "STOP-003",
+            "stop_name": "Library Circle",
+            "delay_minutes": delay_mins,
+            "severity": "CRITICAL" if delay_mins >= 10 else "HIGH",
+            "message": f"Transit Alert: Bus {bus_id} is delayed by {delay_mins} mins. {reason}",
+            "timestamp": time.time()
+        })
+    else:
+        try:
+            alert_col.document(alert_id).delete()
+            if bus_id == "BUS-102":
+                alert_col.document("ALERT-BUS-102").delete()
+        except Exception:
+            pass
 
     logger.warning(f"[!] Delay incident triggered for {bus_id}: {delay_mins}m late.")
     return {
@@ -740,7 +799,7 @@ def trigger_transit_delay(payload: Dict[str, Any] = None):
         "alert_id": alert_id,
         "bus_id": bus_id,
         "delay_minutes": delay_mins,
-        "severity": "CRITICAL" if delay_mins > 10 else "HIGH"
+        "severity": "CRITICAL" if delay_mins >= 10 else "HIGH"
     }
 
 

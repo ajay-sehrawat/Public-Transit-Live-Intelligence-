@@ -86,6 +86,18 @@ class TestTransportAnalyticsService(unittest.TestCase):
         res = analytics_mod.trigger_transit_delay({"bus_id": "BUS-999", "delay_minutes": 12.0})
         self.assertEqual(res["status"], "ALERT_DISPATCHED")
         self.assertEqual(res["severity"], "CRITICAL")
+        self.assertEqual(res["delay_minutes"], 12.0)
+
+        # Verify live fleet state reflects delay and status
+        self.assertEqual(analytics_mod.LIVE_FLEET_STATE["BUS-999"]["status"], "DELAYED")
+        self.assertEqual(analytics_mod.LIVE_FLEET_STATE["BUS-999"]["delay"], 12.0)
+
+        # Verify live feed returns delayed ETA (base travel time + 12.0 * 60 seconds)
+        feed = analytics_mod.get_live_feed()
+        bus_999 = next((b for b in feed["buses"] if b["bus_id"] == "BUS-999"), None)
+        self.assertIsNotNone(bus_999)
+        self.assertEqual(bus_999["delay_minutes"], 12.0)
+        self.assertGreaterEqual(bus_999["eta_seconds"], 12 * 60)
 
     def test_11_simulate_crowd_surge(self):
         res = analytics_mod.simulate_station_crowd({"stop_id": "STOP-002", "passenger_count": 140})

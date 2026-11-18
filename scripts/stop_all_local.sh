@@ -35,3 +35,4 @@ done
 echo ""
 echo "[✓] All local transit microservices stopped cleanly."
 echo "======================================================================"
+
