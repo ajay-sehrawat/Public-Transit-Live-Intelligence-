@@ -4,8 +4,7 @@ metadata:
   name: transit-public-ingress
   namespace: transit-system
   annotations:
-    kubernetes.io/ingress.class: "gce" # Google Cloud HTTP(S) Load Balancer
-    ingress.gcp.kubernetes.io/pre-shared-cert: "transit-ssl-cert"
+    kubernetes.io/ingress.class: "gce"
 spec:
   rules:
   - http:

@@ -8,7 +8,21 @@ from typing import Optional, Dict, Any
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(REPO_ROOT)
 
-from services.common.compat import BaseModel, Field
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    try:
+        from services.common.compat import BaseModel, Field
+    except ImportError:
+        class BaseModel:
+            def __init__(self, **kwargs):
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+            def dict(self, *args, **kwargs):
+                return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+            model_dump = dict
+        def Field(default=None, **kwargs):
+            return default
 
 class TransitDelayAlert(BaseModel):
     alert_id: str = ""

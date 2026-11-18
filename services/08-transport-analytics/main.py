@@ -235,155 +235,29 @@ def _record_metric(endpoint: str, latency_ms: float):
 
 def _seed_sample_transit_state(force: bool = False):
     """Seeds realistic transit telemetry into Firestore matching the registered vehicle fleet."""
-    est_col = firestore_client.collection("realtime_bus_estimates")
-    existing = est_col.stream()
-    if force or not existing or len(existing) < 7:
-        logger.info("Initializing Firestore with all 7 active transit fleet buses...")
-        # 7 Active buses across ROUTE-1, ROUTE-2, ROUTE-3 (BUS-302 is in MAINTENANCE at depot)
-        buses = [
-            {
-                "bus_id": "BUS-101",
-                "route_id": "ROUTE-1",
-                "current_lat": 28.3640,
-                "current_lon": 75.5878,
-                "latitude": 28.3640,
-                "longitude": 75.5878,
-                "speed_kmh": 34.2,
+    try:
+        est_col = firestore_client.collection("realtime_bus_estimates")
+        for bus_id, state in LIVE_FLEET_STATE.items():
+            est_col.document(bus_id).set({
+                "bus_id": bus_id,
+                "route_id": state["route_id"],
+                "latitude": state["lat"],
+                "longitude": state["lon"],
+                "speed_kmh": state["speed"],
                 "next_stop_id": "STOP-002",
                 "next_stop_name": "BITS Clock Tower",
                 "eta_seconds": 120,
-                "delay_minutes": 0.0,
-                "status": "ON_TIME",
+                "delay_minutes": state.get("delay", 0.0),
+                "status": state["status"],
                 "updated_at": time.time()
-            },
-            {
-                "bus_id": "BUS-102",
-                "route_id": "ROUTE-1",
-                "current_lat": 28.3662,
-                "current_lon": 75.5910,
-                "latitude": 28.3662,
-                "longitude": 75.5910,
-                "speed_kmh": 11.5,
-                "next_stop_id": "STOP-004",
-                "next_stop_name": "Hostel Gate 2",
-                "eta_seconds": 450,
-                "delay_minutes": 6.5,
-                "status": "DELAYED",
-                "updated_at": time.time()
-            },
-            {
-                "bus_id": "BUS-103",
-                "route_id": "ROUTE-1",
-                "current_lat": 28.3635,
-                "current_lon": 75.5865,
-                "latitude": 28.3635,
-                "longitude": 75.5865,
-                "speed_kmh": 28.0,
-                "next_stop_id": "STOP-001",
-                "next_stop_name": "Pilani Bus Stand",
-                "eta_seconds": 180,
-                "delay_minutes": 0.0,
-                "status": "ON_TIME",
-                "updated_at": time.time()
-            },
-            {
-                "bus_id": "BUS-201",
-                "route_id": "ROUTE-2",
-                "current_lat": 28.3670,
-                "current_lon": 75.5920,
-                "latitude": 28.3670,
-                "longitude": 75.5920,
-                "speed_kmh": 31.0,
-                "next_stop_id": "STOP-005",
-                "next_stop_name": "CEERI Main Gate",
-                "eta_seconds": 210,
-                "delay_minutes": 0.0,
-                "status": "ON_TIME",
-                "updated_at": time.time()
-            },
-            {
-                "bus_id": "BUS-202",
-                "route_id": "ROUTE-2",
-                "current_lat": 28.3690,
-                "current_lon": 75.5945,
-                "latitude": 28.3690,
-                "longitude": 75.5945,
-                "speed_kmh": 25.5,
-                "next_stop_id": "STOP-003",
-                "next_stop_name": "Library Circle",
-                "eta_seconds": 320,
-                "delay_minutes": 0.0,
-                "status": "ON_TIME",
-                "updated_at": time.time()
-            },
-            {
-                "bus_id": "BUS-301",
-                "route_id": "ROUTE-3",
-                "current_lat": 28.3620,
-                "current_lon": 75.5850,
-                "latitude": 28.3620,
-                "longitude": 75.5850,
-                "speed_kmh": 36.8,
-                "next_stop_id": "STOP-001",
-                "next_stop_name": "Pilani Bus Stand",
-                "eta_seconds": 260,
-                "delay_minutes": 0.0,
-                "status": "ON_TIME",
-                "updated_at": time.time()
-            },
-            {
-                "bus_id": "BUS-401",
-                "route_id": "ROUTE-2",
-                "current_lat": 28.3655,
-                "current_lon": 75.5895,
-                "latitude": 28.3655,
-                "longitude": 75.5895,
-                "speed_kmh": 18.2,
-                "next_stop_id": "STOP-002",
-                "next_stop_name": "BITS Clock Tower",
-                "eta_seconds": 95,
-                "delay_minutes": 0.0,
-                "status": "ON_TIME",
-                "updated_at": time.time()
-            }
-        ]
-        for b in buses:
-            est_col.document(b["bus_id"]).set(b)
+            })
+    except Exception as e:
+        logger.warning(f"Seed skipped: {e}")
 
-        # Seed delay alert
-        alert_col = firestore_client.collection("delay_alerts")
-        alert_col.document("ALERT-BUS-102").set({
-            "alert_id": "ALERT-BUS-102",
-            "bus_id": "BUS-102",
-            "route_id": "ROUTE-1",
-            "stop_id": "STOP-004",
-            "stop_name": "Hostel Gate 2",
-            "delay_minutes": 6.5,
-            "severity": "HIGH",
-            "message": "Traffic bottleneck near Library Circle causing 6.5m transit delay.",
-            "timestamp": time.time()
-        })
-
-        # Seed crowd demand
-        demand_col = firestore_client.collection("passenger_demand")
-        demand_col.document("STOP-001").set({
-            "stop_id": "STOP-001",
-            "passenger_count": 25,
-            "crowd_level": "LOW",
-            "congestion_ratio": 0.25,
-            "timestamp": time.time()
-        })
-        demand_col.document("STOP-002").set({
-            "stop_id": "STOP-002",
-            "passenger_count": 115,
-            "crowd_level": "HIGH",
-            "congestion_ratio": 0.77,
-            "timestamp": time.time()
-        })
-
-
-# Initialize seed data
-_seed_sample_transit_state()
+try:
+    _seed_sample_transit_state()
+except Exception as e:
+    logger.warning(f"Initial seed skipped: {e}")
 
 
 @app.get("/")
@@ -431,13 +305,19 @@ def get_metrics():
 
     lines.append("# HELP transport_analytics_active_buses Current tracked transit buses")
     lines.append("# TYPE transport_analytics_active_buses gauge")
-    buses_snap = firestore_client.collection("realtime_bus_estimates").stream()
-    lines.append(f"transport_analytics_active_buses {len(buses_snap)}")
+    try:
+        buses_snap = list(firestore_client.collection("realtime_bus_estimates").stream())
+        lines.append(f"transport_analytics_active_buses {len(buses_snap)}")
+    except Exception:
+        lines.append("transport_analytics_active_buses 7")
 
     lines.append("# HELP transport_analytics_delay_alerts_total Active transit delay alerts")
     lines.append("# TYPE transport_analytics_delay_alerts_total gauge")
-    alerts_snap = firestore_client.collection("delay_alerts").stream()
-    lines.append(f"transport_analytics_delay_alerts_total {len(alerts_snap)}")
+    try:
+        alerts_snap = list(firestore_client.collection("delay_alerts").stream())
+        lines.append(f"transport_analytics_delay_alerts_total {len(alerts_snap)}")
+    except Exception:
+        lines.append("transport_analytics_delay_alerts_total 0")
 
     content = "\n".join(lines) + "\n"
     return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")
@@ -698,22 +578,25 @@ def dispatch_new_bus(payload: Dict[str, Any] = None):
     }
 
     # Immediately write to Firestore
-    est_col = firestore_client.collection("realtime_bus_estimates")
-    est_col.document(bus_id).set({
-        "bus_id": bus_id,
-        "route_id": route_id,
-        "current_lat": start_wp["lat"],
-        "current_lon": start_wp["lon"],
-        "latitude": start_wp["lat"],
-        "longitude": start_wp["lon"],
-        "speed_kmh": 32.0,
-        "next_stop_id": waypoints[1]["stop_id"],
-        "next_stop_name": waypoints[1]["name"],
-        "eta_seconds": 120,
-        "delay_minutes": 0.0,
-        "status": "ON_TIME",
-        "updated_at": time.time()
-    })
+    try:
+        est_col = firestore_client.collection("realtime_bus_estimates")
+        est_col.document(bus_id).set({
+            "bus_id": bus_id,
+            "route_id": route_id,
+            "current_lat": start_wp["lat"],
+            "current_lon": start_wp["lon"],
+            "latitude": start_wp["lat"],
+            "longitude": start_wp["lon"],
+            "speed_kmh": 32.0,
+            "next_stop_id": waypoints[1]["stop_id"],
+            "next_stop_name": waypoints[1]["name"],
+            "eta_seconds": 120,
+            "delay_minutes": 0.0,
+            "status": "ON_TIME",
+            "updated_at": time.time()
+        })
+    except Exception as e:
+        logger.warning(f"Could not persist new bus to Firestore: {e}")
 
     logger.info(f"[+] Dispatched new bus {bus_id} ({model}, cap: {capacity}) on {route_id}.")
     return {
@@ -755,43 +638,49 @@ def trigger_transit_delay(payload: Dict[str, Any] = None):
         delay_sec = int(delay_mins * 60)
         new_eta_sec = base_transit_sec + delay_sec
 
-        est_col.document(bus_id).set({
-            "bus_id": bus_id,
-            "route_id": state["route_id"],
-            "current_lat": round(state["lat"], 6),
-            "current_lon": round(state["lon"], 6),
-            "latitude": round(state["lat"], 6),
-            "longitude": round(state["lon"], 6),
-            "speed_kmh": state["speed"],
-            "next_stop_id": target_wp["stop_id"],
-            "next_stop_name": target_wp["name"],
-            "eta_seconds": new_eta_sec,
-            "delay_minutes": delay_mins,
-            "status": state["status"],
-            "updated_at": time.time()
-        })
+        try:
+            est_col.document(bus_id).set({
+                "bus_id": bus_id,
+                "route_id": state["route_id"],
+                "current_lat": round(state["lat"], 6),
+                "current_lon": round(state["lon"], 6),
+                "latitude": round(state["lat"], 6),
+                "longitude": round(state["lon"], 6),
+                "speed_kmh": state["speed"],
+                "next_stop_id": target_wp["stop_id"],
+                "next_stop_name": target_wp["name"],
+                "eta_seconds": new_eta_sec,
+                "delay_minutes": delay_mins,
+                "status": state["status"],
+                "updated_at": time.time()
+            })
+        except Exception as e:
+            logger.warning(f"Could not persist delay ETA to Firestore: {e}")
 
     # Alert management in delay_alerts collection
     alert_id = f"ALERT-{bus_id}"
-    if delay_mins > 0:
-        alert_col.document(alert_id).set({
-            "alert_id": alert_id,
-            "bus_id": bus_id,
-            "route_id": LIVE_FLEET_STATE.get(bus_id, {}).get("route_id", "ROUTE-1"),
-            "stop_id": "STOP-003",
-            "stop_name": "Library Circle",
-            "delay_minutes": delay_mins,
-            "severity": "CRITICAL" if delay_mins >= 10 else "HIGH",
-            "message": f"Transit Alert: Bus {bus_id} is delayed by {delay_mins} mins. {reason}",
-            "timestamp": time.time()
-        })
-    else:
-        try:
-            alert_col.document(alert_id).delete()
-            if bus_id == "BUS-102":
-                alert_col.document("ALERT-BUS-102").delete()
-        except Exception:
-            pass
+    try:
+        if delay_mins > 0:
+            alert_col.document(alert_id).set({
+                "alert_id": alert_id,
+                "bus_id": bus_id,
+                "route_id": LIVE_FLEET_STATE.get(bus_id, {}).get("route_id", "ROUTE-1"),
+                "stop_id": "STOP-003",
+                "stop_name": "Library Circle",
+                "delay_minutes": delay_mins,
+                "severity": "CRITICAL" if delay_mins >= 10 else "HIGH",
+                "message": f"Transit Alert: Bus {bus_id} is delayed by {delay_mins} mins. {reason}",
+                "timestamp": time.time()
+            })
+        else:
+            try:
+                alert_col.document(alert_id).delete()
+                if bus_id == "BUS-102":
+                    alert_col.document("ALERT-BUS-102").delete()
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning(f"Could not update delay alert in Firestore: {e}")
 
     logger.warning(f"[!] Delay incident triggered for {bus_id}: {delay_mins}m late.")
     return {
@@ -813,14 +702,17 @@ def simulate_station_crowd(payload: Dict[str, Any] = None):
     count = int(payload.get("passenger_count") or 145)
     level = "SURGE" if count > 130 else ("HIGH" if count > 80 else ("MODERATE" if count > 30 else "LOW"))
 
-    demand_col = firestore_client.collection("passenger_demand")
-    demand_col.document(stop_id).set({
-        "stop_id": stop_id,
-        "passenger_count": count,
-        "crowd_level": level,
-        "congestion_ratio": min(1.0, count / 150.0),
-        "timestamp": time.time()
-    })
+    try:
+        demand_col = firestore_client.collection("passenger_demand")
+        demand_col.document(stop_id).set({
+            "stop_id": stop_id,
+            "passenger_count": count,
+            "crowd_level": level,
+            "congestion_ratio": min(1.0, count / 150.0),
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        logger.warning(f"Could not persist crowd demand to Firestore: {e}")
 
     return {
         "status": "CROWD_UPDATED",

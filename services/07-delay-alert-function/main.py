@@ -107,23 +107,65 @@ def evaluate_and_create_alert(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     logger.info(f"📢 [Serverless Alert Dispatched] {alert_id}: {message} ({severity})")
     return alert_record
 
-def delay_alert_pubsub_handler(event: Dict[str, Any], context=None) -> Dict[str, Any]:
-    """Google Cloud Functions entrypoint for Cloud Pub/Sub / Kafka messages."""
+try:
+    import functions_framework
+    HAS_FF = True
+except ImportError:
+    HAS_FF = False
+
+def _process_delay_alert(event, context=None) -> Dict[str, Any]:
+    """Unified logic for CloudEvent (Gen2), Pub/Sub (Gen1), and dictionary events."""
     logger.info("Received event trigger in delay_alert_pubsub_handler...")
     payload_data = {}
 
-    if "data" in event:
-        # Base64 decoded data from Pub/Sub
-        try:
-            decoded = base64.b64decode(event["data"]).decode("utf-8")
-            payload_data = json.loads(decoded)
-        except Exception:
-            payload_data = event["data"] if isinstance(event["data"], dict) else {}
+    if hasattr(event, "data"):
+        raw = event.data
+        if isinstance(raw, dict):
+            msg = raw.get("message", {})
+            b64_str = msg.get("data") if isinstance(msg, dict) else raw.get("data")
+            if b64_str:
+                try:
+                    payload_data = json.loads(base64.b64decode(b64_str).decode("utf-8"))
+                except Exception:
+                    payload_data = {"raw": b64_str}
+            else:
+                payload_data = raw
+        elif isinstance(raw, (str, bytes)):
+            try:
+                payload_data = json.loads(base64.b64decode(raw).decode("utf-8"))
+            except Exception:
+                payload_data = {"raw": str(raw)}
+    elif isinstance(event, dict):
+        if "data" in event:
+            try:
+                decoded = base64.b64decode(event["data"]).decode("utf-8")
+                payload_data = json.loads(decoded)
+            except Exception:
+                payload_data = event["data"] if isinstance(event["data"], dict) else {}
+        elif "message" in event and isinstance(event["message"], dict):
+            b64_str = event["message"].get("data")
+            if b64_str:
+                try:
+                    payload_data = json.loads(base64.b64decode(b64_str).decode("utf-8"))
+                except Exception:
+                    payload_data = {"raw": b64_str}
+        else:
+            payload_data = event
     else:
-        payload_data = event
+        payload_data = {}
 
     result = evaluate_and_create_alert(payload_data)
     return {"status": "SUCCESS", "alert": result}
+
+if HAS_FF:
+    @functions_framework.cloud_event
+    def delay_alert_pubsub_handler(event, context=None) -> Dict[str, Any]:
+        """Google Cloud Functions entrypoint for CloudEvent / PubSub triggers."""
+        return _process_delay_alert(event, context)
+else:
+    def delay_alert_pubsub_handler(event, context=None) -> Dict[str, Any]:
+        """Google Cloud Functions entrypoint for PubSub / Dict triggers."""
+        return _process_delay_alert(event, context)
 
 def incident_storage_handler(data: Dict[str, Any], context=None) -> Dict[str, Any]:
     """Google Cloud Functions entrypoint for GCS Object Finalize events (Storage Product 3)."""

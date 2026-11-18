@@ -150,6 +150,27 @@ class InMemoryFirestore:
             return [InMemoryDocumentSnapshot(doc_id, dict(data)) for doc_id, data in col.items()]
 
 
+class SafeCollectionWrapper:
+    def __init__(self, real_col):
+        self.real_col = real_col
+
+    def stream(self):
+        try:
+            return list(self.real_col.stream())
+        except Exception as e:
+            logger.warning(f"Error streaming from Firestore: {e}")
+            return []
+
+    def document(self, doc_id: str):
+        return self.real_col.document(doc_id)
+
+    def where(self, *args, **kwargs):
+        return self.real_col.where(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.real_col, name)
+
+
 class TransitFirestoreClient:
     """Unified Firestore NoSQL Client."""
 
@@ -168,6 +189,6 @@ class TransitFirestoreClient:
 
     def collection(self, name: str):
         if self.real_client:
-            return self.real_client.collection(name)
+            return SafeCollectionWrapper(self.real_client.collection(name))
         return self.in_memory.collection(name)
 
