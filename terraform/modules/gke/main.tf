@@ -77,9 +77,7 @@ resource "google_container_node_pool" "primary_nodes" {
   }
 
   lifecycle {
-    ignore_changes = [
-      node_count,
-    ]
+    ignore_changes = all
   }
 
   management {
