@@ -70,6 +70,24 @@
     .crowd-MODERATE { background: #854d0e; color: var(--accent-yellow); }
     .crowd-HIGH, .crowd-SURGE { background: #991b1b; color: var(--accent-red); }
 
+    /* Action Buttons */
+    .btn-action {
+      background: #0284c7;
+      color: white;
+      border: 1px solid #38bdf8;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-action:hover { background: #0369a1; transform: translateY(-1px); }
+    .btn-danger { background: #b91c1c; border-color: #f87171; }
+    .btn-danger:hover { background: #991b1b; }
+    .btn-purple { background: #6d28d9; border-color: #a78bfa; }
+    .btn-purple:hover { background: #5b21b6; }
+
     /* Smooth bus marker gliding animation */
     .leaflet-marker-icon.bus-marker {
       transition: all 1.3s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -80,7 +98,10 @@
 
   <header>
     <h1>🚌 Public Transit Live Intelligence (S11)</h1>
-    <div style="display:flex; align-items:center; gap:12px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="btn-action" onclick="promptDispatchBus()" title="Add and dispatch a new vehicle into the live fleet">➕ Dispatch Bus</button>
+      <button class="btn-action btn-danger" onclick="promptTriggerDelay()" title="Trigger a real-time traffic delay on a bus">⚠️ Trigger Delay</button>
+      <button class="btn-action btn-purple" onclick="triggerCrowdSurge()" title="Simulate a passenger surge at BITS Clock Tower">👥 Surge Crowd</button>
       <span class="status-badge" id="backend-status">● Live Feed Active</span>
       <span style="font-size:0.8rem; color:var(--text-muted);" id="last-updated">Updating...</span>
     </div>
@@ -305,6 +326,62 @@
 
       } catch (e) {
         console.error("Live feed poll error:", e);
+      }
+    }
+
+    // Interactive Dispatch & Simulation Actions
+    async function promptDispatchBus() {
+      const busId = prompt("Enter New Bus ID (e.g. BUS-505):", "BUS-505");
+      if (!busId) return;
+      const routeId = prompt("Select Route (ROUTE-1, ROUTE-2, or ROUTE-3):", "ROUTE-1");
+      if (!routeId) return;
+
+      try {
+        const res = await fetch('/api/v1/analytics/dispatch-bus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bus_id: busId, route_id: routeId, model: 'Tata Starbus EV', capacity: 50 })
+        });
+        const json = await res.json();
+        alert(`[✓] ${json.message}`);
+        fetchLiveFeed();
+      } catch (e) {
+        alert("Error dispatching bus: " + e);
+      }
+    }
+
+    async function promptTriggerDelay() {
+      const busId = prompt("Enter Bus ID to delay (e.g. BUS-101, BUS-201):", "BUS-101");
+      if (!busId) return;
+      const delayMins = prompt("Enter delay in minutes (e.g. 9.5):", "9.5");
+      if (!delayMins) return;
+
+      try {
+        const res = await fetch('/api/v1/analytics/trigger-delay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bus_id: busId, delay_minutes: parseFloat(delayMins) })
+        });
+        const json = await res.json();
+        alert(`[⚠️ Alert Dispatched] Bus ${busId} flagged delayed by ${delayMins} mins.`);
+        fetchLiveFeed();
+      } catch (e) {
+        alert("Error triggering delay: " + e);
+      }
+    }
+
+    async function triggerCrowdSurge() {
+      try {
+        const res = await fetch('/api/v1/analytics/simulate-crowd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stop_id: 'STOP-002', passenger_count: 145 })
+        });
+        const json = await res.json();
+        alert(`[👥 Crowd Surged] BITS Clock Tower crowd set to ${json.crowd_level} (${json.passenger_count} pax).`);
+        fetchLiveFeed();
+      } catch (e) {
+        alert("Error updating crowd: " + e);
       }
     }
 

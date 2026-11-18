@@ -76,6 +76,22 @@ class TestTransportAnalyticsService(unittest.TestCase):
         self.assertIn("stops", stops_res)
         self.assertEqual(stops_res["total_stops"], len(analytics_mod.DEFAULT_STOPS))
 
+    def test_09_dispatch_new_bus(self):
+        res = analytics_mod.dispatch_new_bus({"bus_id": "BUS-999", "route_id": "ROUTE-1", "model": "Volvo EV", "capacity": 60})
+        self.assertEqual(res["status"], "DEPLOYED")
+        self.assertEqual(res["bus_id"], "BUS-999")
+        self.assertIn("BUS-999", analytics_mod.LIVE_FLEET_STATE)
+
+    def test_10_trigger_delay_incident(self):
+        res = analytics_mod.trigger_transit_delay({"bus_id": "BUS-999", "delay_minutes": 12.0})
+        self.assertEqual(res["status"], "ALERT_DISPATCHED")
+        self.assertEqual(res["severity"], "CRITICAL")
+
+    def test_11_simulate_crowd_surge(self):
+        res = analytics_mod.simulate_station_crowd({"stop_id": "STOP-002", "passenger_count": 140})
+        self.assertEqual(res["status"], "CROWD_UPDATED")
+        self.assertEqual(res["crowd_level"], "SURGE")
+
 
 if __name__ == "__main__":
     unittest.main()

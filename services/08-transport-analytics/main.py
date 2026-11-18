@@ -647,6 +647,130 @@ def seed_demo_data():
     return {"status": "SUCCESS", "message": "Demo transit telemetry successfully seeded into Firestore."}
 
 
+@app.post("/api/v1/analytics/dispatch-bus")
+def dispatch_new_bus(payload: Dict[str, Any] = None):
+    """Dynamically adds and dispatches a new transit bus to the live operational fleet."""
+    if not payload:
+        payload = {}
+
+    bus_num = len(LIVE_FLEET_STATE) + 101
+    bus_id = str(payload.get("bus_id") or f"BUS-{bus_num}")
+    route_id = str(payload.get("route_id") or "ROUTE-1")
+    model = str(payload.get("model") or "Tata Starbus EV")
+    capacity = int(payload.get("capacity") or 50)
+
+    # Get initial waypoint coordinates for the selected route
+    waypoints = ROUTE_WAYPOINTS.get(route_id, ROUTE_WAYPOINTS["ROUTE-1"])
+    start_wp = waypoints[0]
+
+    # Register in live fleet simulation
+    LIVE_FLEET_STATE[bus_id] = {
+        "route_id": route_id,
+        "lat": start_wp["lat"],
+        "lon": start_wp["lon"],
+        "target_idx": 1,
+        "dir": 1,
+        "speed": 32.0,
+        "status": "ON_TIME",
+        "delay": 0.0
+    }
+
+    # Immediately write to Firestore
+    est_col = firestore_client.collection("realtime_bus_estimates")
+    est_col.document(bus_id).set({
+        "bus_id": bus_id,
+        "route_id": route_id,
+        "current_lat": start_wp["lat"],
+        "current_lon": start_wp["lon"],
+        "latitude": start_wp["lat"],
+        "longitude": start_wp["lon"],
+        "speed_kmh": 32.0,
+        "next_stop_id": waypoints[1]["stop_id"],
+        "next_stop_name": waypoints[1]["name"],
+        "eta_seconds": 120,
+        "delay_minutes": 0.0,
+        "status": "ON_TIME",
+        "updated_at": time.time()
+    })
+
+    logger.info(f"[+] Dispatched new bus {bus_id} ({model}, cap: {capacity}) on {route_id}.")
+    return {
+        "status": "DEPLOYED",
+        "bus_id": bus_id,
+        "route_id": route_id,
+        "model": model,
+        "capacity": capacity,
+        "message": f"Bus {bus_id} deployed and moving live on {route_id}."
+    }
+
+
+@app.post("/api/v1/analytics/trigger-delay")
+def trigger_transit_delay(payload: Dict[str, Any] = None):
+    """Simulates a severe traffic incident / roadblock causing bus delay."""
+    if not payload:
+        payload = {}
+
+    bus_id = str(payload.get("bus_id") or "BUS-101")
+    delay_mins = float(payload.get("delay_minutes") or 8.5)
+    reason = str(payload.get("reason") or "Heavy traffic bottleneck near Library Circle.")
+
+    if bus_id in LIVE_FLEET_STATE:
+        LIVE_FLEET_STATE[bus_id]["status"] = "DELAYED"
+        LIVE_FLEET_STATE[bus_id]["delay"] = delay_mins
+        LIVE_FLEET_STATE[bus_id]["speed"] = 9.0
+
+    # Write alert to Firestore delay_alerts
+    alert_id = f"ALERT-{bus_id}-{int(time.time())}"
+    alert_col = firestore_client.collection("delay_alerts")
+    alert_col.document(alert_id).set({
+        "alert_id": alert_id,
+        "bus_id": bus_id,
+        "route_id": LIVE_FLEET_STATE.get(bus_id, {}).get("route_id", "ROUTE-1"),
+        "stop_id": "STOP-003",
+        "stop_name": "Library Circle",
+        "delay_minutes": delay_mins,
+        "severity": "CRITICAL" if delay_mins > 10 else "HIGH",
+        "message": f"Transit Alert: Bus {bus_id} is delayed by {delay_mins} mins. {reason}",
+        "timestamp": time.time()
+    })
+
+    logger.warning(f"[!] Delay incident triggered for {bus_id}: {delay_mins}m late.")
+    return {
+        "status": "ALERT_DISPATCHED",
+        "alert_id": alert_id,
+        "bus_id": bus_id,
+        "delay_minutes": delay_mins,
+        "severity": "CRITICAL" if delay_mins > 10 else "HIGH"
+    }
+
+
+@app.post("/api/v1/analytics/simulate-crowd")
+def simulate_station_crowd(payload: Dict[str, Any] = None):
+    """Simulates passenger smartcard tap surge at a campus transit stop."""
+    if not payload:
+        payload = {}
+
+    stop_id = str(payload.get("stop_id") or "STOP-002")
+    count = int(payload.get("passenger_count") or 145)
+    level = "SURGE" if count > 130 else ("HIGH" if count > 80 else ("MODERATE" if count > 30 else "LOW"))
+
+    demand_col = firestore_client.collection("passenger_demand")
+    demand_col.document(stop_id).set({
+        "stop_id": stop_id,
+        "passenger_count": count,
+        "crowd_level": level,
+        "congestion_ratio": min(1.0, count / 150.0),
+        "timestamp": time.time()
+    })
+
+    return {
+        "status": "CROWD_UPDATED",
+        "stop_id": stop_id,
+        "passenger_count": count,
+        "crowd_level": level
+    }
+
+
 if __name__ == "__main__":
     from services.common.compat import run_server
     port = int(os.environ.get("PORT", 8080))
