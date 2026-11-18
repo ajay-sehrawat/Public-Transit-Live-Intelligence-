@@ -72,6 +72,13 @@ for entry in "${SERVICES[@]}"; do
     echo "[✓] ${name} pushed successfully!"
 done
 
+# 4. Automatically update Kubernetes deployment manifests with the new image URIs
+echo ""
+echo "[+] Updating Kubernetes manifests with Artifact Registry image URIs..."
+sed -i "s|gcr.io/transit-s11-prod|${REGISTRY_HOST}|g" "${PROJECT_ROOT}"/k8s/base/*/deployment.yaml 2>/dev/null || \
+sed -i '' "s|gcr.io/transit-s11-prod|${REGISTRY_HOST}|g" "${PROJECT_ROOT}"/k8s/base/*/deployment.yaml 2>/dev/null || true
+echo "[✓] Kubernetes manifests updated to point to ${REGISTRY_HOST}."
+
 echo ""
 echo "================================================================="
 echo "  [✓] ALL 6 TRANSIT MICROSERVICE IMAGES BUILT & PUSHED!          "
