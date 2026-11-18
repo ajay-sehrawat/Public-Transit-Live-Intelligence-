@@ -1,9 +1,17 @@
 # -*- coding: utf-8 -*-
 """FastAPI REST API for Service 1: Vehicle Registry Service"""
 
+import os
+import sys
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Query, status
-from fastapi.middleware.cors import CORSMiddleware
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.insert(0, os.path.dirname(__file__))
+
+from services.common.compat import FastAPI, HTTPException, Query, status, CORSMiddleware
 from vehicle_models import VehicleCreate, VehicleUpdate, VehicleValidationResult
 from vehicle_db import repo
 

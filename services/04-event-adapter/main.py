@@ -14,16 +14,11 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(REPO_ROOT)
 sys.path.append(os.path.dirname(__file__))
 
-from services.common.compat import FastAPI, HTTPException, status, CORSMiddleware
+from services.common.compat import FastAPI, HTTPException, status, CORSMiddleware, run_server
 from services.common.kafka.kafka_client import TransitKafkaConsumer, TransitKafkaProducer
 from services.common.clients.route_client import RouteServiceClient
 from adapter_engine import EventAdapterEngine
 from adapter_models import RawGPSEvent, NormalizedTelemetryEvent
-
-try:
-    import uvicorn
-except ImportError:
-    uvicorn = None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -140,5 +135,4 @@ def adapt_event_http(payload: RawGPSEvent):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8004))
     logger.info(f"Starting Event Adapter on port {port}...")
-    if uvicorn:
-        uvicorn.run(app, host="0.0.0.0", port=port)
+    run_server(app, host="0.0.0.0", port=port)

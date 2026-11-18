@@ -226,14 +226,37 @@ def run_server(app, host: str = "0.0.0.0", port: int = 8080):
             def do_POST(self):
                 parsed = urllib.parse.urlparse(self.path)
                 path = parsed.path
+                content_len = int(self.headers.get("Content-Length", 0))
+                post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                body_json = {}
+                try:
+                    body_json = json.loads(post_body.decode("utf-8")) if post_body else {}
+                except Exception:
+                    body_json = {}
+
                 handler = None
                 if hasattr(app, "routes"):
                     handler = app.routes.get(("POST", path))
 
                 if handler:
                     try:
-                        res = handler()
-                        body = json.dumps(res).encode("utf-8") if isinstance(res, dict) else str(res).encode("utf-8")
+                        import inspect
+                        sig = inspect.signature(handler)
+                        if len(sig.parameters) > 0:
+                            first_param = list(sig.parameters.values())[0]
+                            param_type = first_param.annotation
+                            if param_type != inspect.Parameter.empty and callable(param_type):
+                                try:
+                                    arg = param_type(**body_json)
+                                except Exception:
+                                    arg = body_json
+                            else:
+                                arg = body_json
+                            res = handler(arg)
+                        else:
+                            res = handler()
+
+                        body = json.dumps(res).encode("utf-8") if isinstance(res, (dict, list)) else (res.body if hasattr(res, "body") else str(res).encode("utf-8"))
                         self.send_response(200)
                         self.send_header("Content-Type", "application/json")
                         self.send_header("Content-Length", str(len(body)))
@@ -252,7 +275,18 @@ def run_server(app, host: str = "0.0.0.0", port: int = 8080):
             def log_message(self, format, *args):
                 pass
 
-        httpd = HTTPServer((host, port), FastApiCompatHandler)
+        # Trigger startup handlers if registered
+        if hasattr(app, "startup_handlers"):
+            for h in app.startup_handlers:
+                try:
+                    h()
+                except Exception:
+                    pass
+
+        class ReuseHTTPServer(HTTPServer):
+            allow_reuse_address = True
+
+        httpd = ReuseHTTPServer((host, port), FastApiCompatHandler)
         print(f"[*] Native HTTP Server running on http://{host}:{port}/ (Press Ctrl+C to stop)")
         try:
             httpd.serve_forever()

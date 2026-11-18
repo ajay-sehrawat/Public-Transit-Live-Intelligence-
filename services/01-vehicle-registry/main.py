@@ -7,7 +7,15 @@ import os
 import sys
 import threading
 import logging
-import uvicorn
+
+# Ensure project root and service directory in sys.path
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.insert(0, os.path.dirname(__file__))
+
+from services.common.compat import run_server
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +43,7 @@ def run_grpc():
 def run_rest():
     """Runs the FastAPI REST server."""
     logger.info(f"[✓] REST API running on 0.0.0.0:{REST_PORT}")
-    uvicorn.run(app, host="0.0.0.0", port=REST_PORT, log_level="info")
+    run_server(app, host="0.0.0.0", port=REST_PORT)
 
 if __name__ == "__main__":
     logger.info("Starting Service 1: Vehicle Registry Service...")

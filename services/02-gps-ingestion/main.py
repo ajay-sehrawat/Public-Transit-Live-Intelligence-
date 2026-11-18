@@ -9,16 +9,14 @@ import time
 import uuid
 import logging
 from typing import Optional, List
-from services.common.compat import FastAPI, HTTPException, status, CORSMiddleware
-try:
-    import uvicorn
-except ImportError:
-    uvicorn = None
-
 # Add repo root and service directory to path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-sys.path.append(REPO_ROOT)
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.insert(0, os.path.dirname(__file__))
+
+from services.common.compat import FastAPI, HTTPException, status, CORSMiddleware, run_server
 
 from services.common.clients.vehicle_client import VehicleRegistryClient
 from services.common.kafka.kafka_client import TransitKafkaProducer
@@ -225,4 +223,4 @@ def ingest_telemetry_batch(payload: BatchTelemetryPayload):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8002))
     logger.info(f"Starting GPS Ingestion Service on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    run_server(app, host="0.0.0.0", port=port)

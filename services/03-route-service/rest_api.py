@@ -1,9 +1,17 @@
 # -*- coding: utf-8 -*-
 """FastAPI REST API for Service 3: Route Service"""
 
+import os
+import sys
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Query, status
-from fastapi.middleware.cors import CORSMiddleware
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.insert(0, os.path.dirname(__file__))
+
+from services.common.compat import FastAPI, HTTPException, Query, status, CORSMiddleware
 from route_db import repo
 from geometry import haversine_distance, is_within_geofence
 from route_models import RouteModel, StopModel, NearestStopResult
