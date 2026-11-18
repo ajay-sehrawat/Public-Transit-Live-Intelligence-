@@ -2,7 +2,7 @@
 FROM python:3.11-slim as builder
 
 WORKDIR /app
-COPY requirements.txt .
+COPY services/02-gps-ingestion/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 FROM python:3.11-slim
