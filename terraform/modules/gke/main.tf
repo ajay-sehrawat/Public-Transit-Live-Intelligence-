@@ -76,6 +76,12 @@ resource "google_container_node_pool" "primary_nodes" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [
+      node_count,
+    ]
+  }
+
   management {
     auto_repair  = true
     auto_upgrade = true
