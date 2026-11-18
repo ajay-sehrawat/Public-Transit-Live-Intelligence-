@@ -24,6 +24,9 @@ spec:
         ports:
         - containerPort: 8008
           name: http
+        env:
+        - name: PORT
+          value: "8008"
         envFrom:
         - configMapRef:
             name: transit-global-config
