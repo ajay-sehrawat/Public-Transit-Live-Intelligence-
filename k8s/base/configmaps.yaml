@@ -14,5 +14,5 @@ data:
   ROUTE_SERVICE_GRPC_HOST: "route-service.transit-system.svc.cluster.local:50053"
   ROUTE_SERVICE_HTTP_HOST: "http://route-service.transit-system.svc.cluster.local:8003"
   LOG_LEVEL: "INFO"
-  GCP_PROJECT_ID: "transit-s11-prod"
+  GCP_PROJECT_ID: "transit-s11-bits-12730"
 

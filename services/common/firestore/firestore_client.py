@@ -236,7 +236,10 @@ class TransitFirestoreClient:
     """Unified Firestore NoSQL Client."""
 
     def __init__(self, project_id: Optional[str] = None):
-        self.project_id = project_id or os.environ.get("GCP_PROJECT_ID")
+        proj = project_id or os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("PROJECT_ID")
+        if not proj or proj == "transit-s11-prod":
+            proj = "transit-s11-bits-12730"
+        self.project_id = proj
         self.real_client = None
         self.in_memory = InMemoryFirestore()
 
