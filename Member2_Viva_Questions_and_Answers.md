@@ -225,3 +225,4 @@
 | **Kafka Broker** | `9092` | TCP | Telemetry message queue (`bus-gps-raw`) |
 | **ArgoCD Server** | `443` | HTTPS | Declarative GitOps synchronization web UI |
 | **Kubernetes Metrics API** | `443` | HTTPS | CPU usage aggregation feeding HPA |
+
