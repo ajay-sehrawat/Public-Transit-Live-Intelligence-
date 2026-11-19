@@ -3,7 +3,7 @@
 **Course**: CS/SS G527 Cloud Computing | BITS Pilani  
 **Total Marks**: 60 Marks (48M Project Evaluation + 12M Individual Viva)  
 **Target Platform**: Google Cloud Platform (GCP) — Zero-Cost Architecture  
-**Public Service**: [http://34.132.139.56](http://34.132.139.56)  
+**Public Service**: [http://8.233.33.106](http://8.233.33.106)  
 **GitHub Repository**: [https://github.com/ajay-sehrawat/Public-Transit-Live-Intelligence-](https://github.com/ajay-sehrawat/Public-Transit-Live-Intelligence-)
 
 ---
@@ -37,7 +37,7 @@ We architected and deployed an **enterprise-grade, distributed, cloud-native tra
 1. **Real-time Bus Tracking**: Ingests GPS telemetry (latitude, longitude, speed, timestamp) from vehicle fleets.
 2. **Dynamic Arrival Estimation (ETA)**: Calculates arrival times at subsequent stops using Haversine distance, historical velocity, and real-time congestion factors.
 3. **Crowd Density Ingestion**: Ingests commuter smartcard tap-ins/tap-outs at bus stops to classify passenger crowd pressure (`LOW`, `MODERATE`, `HIGH`).
-4. **Live Interactive Commuter Web Dashboard**: An interactive map rendered with Leaflet.js and a live countdown arrival board accessible via a public IP: **`http://34.132.139.56`**.
+4. **Live Interactive Commuter Web Dashboard**: An interactive map rendered with Leaflet.js and a live countdown arrival board accessible via a public IP: **`http://8.233.33.106`**.
 5. **Fault-Tolerant Distributed Coordination**: Coordinates active-standby analytics pipelines using a 3-node **Apache ZooKeeper** ensemble.
 6. **Automated Continuous Delivery & Self-Healing**: Managed via **ArgoCD GitOps** tracking our GitHub repository.
 7. **End-to-End Observability**: Real-time monitoring via Prometheus metrics, Grafana visualization dashboards, and centralized Loki log pipelines.
@@ -45,8 +45,8 @@ We architected and deployed an **enterprise-grade, distributed, cloud-native tra
 ### Key Deployment Cheat Sheet
 | Component | Endpoint / Identification | Credentials / Access |
 |---|---|---|
-| **Public Web Service** | `http://34.132.139.56` (Port 80 / 8008) | Open Public Ingress |
-| **OpenAPI / Swagger Docs** | `http://34.132.139.56/docs` | Interactive API documentation |
+| **Public Web Service** | `http://8.233.33.106` (Port 80 / 8008) | Open Public Ingress |
+| **OpenAPI / Swagger Docs** | `http://8.233.33.106/docs` | Interactive API documentation |
 | **GCP Project ID** | `transit-s11-bits-12730` | Authenticated as student account |
 | **GKE Kubernetes Cluster** | `transit-gke-cluster` (Zone: `us-central1-a`) | Namespace: `transit-system` |
 | **Cloud SQL PostgreSQL** | Host: `34.46.78.203:5432`, DB: `transit_db` | User: `transit_admin` / `TransitSecurePass2026!` |
@@ -101,7 +101,7 @@ Here is exactly how data moves from a bus driving down the street to a commuter'
                                                     │
                                                     ▼
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ Public Web Layer & Commuter Frontend (http://34.132.139.56)                             │
+│ Public Web Layer & Commuter Frontend (http://8.233.33.106)                             │
 │ - External Network Load Balancer routes port 80 traffic to Service 8                     │
 │ - Leaflet.js renders moving bus markers on live map                                      │
 │ - Arrival countdown table updates ETAs every 3 seconds                                   │
@@ -151,7 +151,7 @@ You should see all 6 microservice deployments, 3 ZooKeeper pods (`zk-0`, `zk-1`,
 
 ### Step 3: Open the Live Public Dashboard
 Open your browser and navigate to:
-**`http://34.132.139.56`**
+**`http://8.233.33.106`**
 
 **What to Test in the Browser UI**:
 1. **Leaflet Map**: You will see animated bus markers (Route 1A, Route 2B, Route 3C) traversing the routes in real-time.
@@ -214,10 +214,10 @@ PGPASSWORD="TransitSecurePass2026!" psql -h 34.46.78.203 -U transit_admin -d tra
   -c "SELECT bus_id, model, capacity, status FROM vehicles LIMIT 5;"
 
 # 3. Test Microservice 1 REST health & API endpoint
-curl -s http://34.132.139.56/api/v1/vehicles | jq .
+curl -s http://8.233.33.106/api/v1/vehicles | jq .
 
 # 4. Transmit live GPS telemetry into Microservice 2 (Task b & Microservice 2)
-curl -X POST "http://34.132.139.56/api/v1/telemetry/gps" \
+curl -X POST "http://8.233.33.106/api/v1/telemetry/gps" \
   -H "Content-Type: application/json" \
   -d '{
     "bus_id": "BUS-101",
@@ -424,7 +424,7 @@ Member 4 built the **multi-tier storage architecture, serverless alert triggers,
    - **Prometheus**: Scrapes metrics every 15s from 7 target services.
    - **Grafana**: Pre-configured with 5 visual dashboard panels (Throughput, p95 Latency, HPA Replicas, Active Fleet, Delay Alerts).
    - **Loki & Promtail**: Centralized log streaming and aggregation across all Kubernetes pods.
-4. **Microservice 8 & Public Web Dashboard**: The user-facing application on external IP **`34.132.139.56`**, featuring a live Leaflet map and countdown arrival board.
+4. **Microservice 8 & Public Web Dashboard**: The user-facing application on external IP **`8.233.33.106`**, featuring a live Leaflet map and countdown arrival board.
 
 ---
 
@@ -467,7 +467,7 @@ gcloud functions list --regions=us-central1 --project=transit-s11-bits-12730
 gcloud functions logs read transit-delay-alert --region=us-central1 --limit=5
 
 # 5. Check live Prometheus metrics scraped from Microservice 8 (Task h & Microservice 8)
-curl -s http://34.132.139.56/metrics | grep "transport_analytics" | head -n 10
+curl -s http://8.233.33.106/metrics | grep "transport_analytics" | head -n 10
 
 # 6. Run the automated Observability verification test suite (Task h)
 python3 ~/transit-cloud/scripts/verify_observability_stack.py

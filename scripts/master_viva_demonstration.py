@@ -24,7 +24,7 @@ CYAN = "\033[96m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
-PUBLIC_IP = "34.132.139.56"
+PUBLIC_IP = "8.233.33.106"
 
 def print_banner():
     print(f"\n{BOLD}{CYAN}{'='*80}{RESET}")
@@ -135,12 +135,12 @@ def main():
         with urllib.request.urlopen(req, timeout=4) as response:
             if response.status == 200:
                 print(f"  {GREEN}[✓] Public Web Service is LIVE & HEALTHY at http://{PUBLIC_IP}{RESET}")
-                scorecard.append(("Mandatory Public Web Service (http://34.132.139.56)", "Req", "LIVE [✓]"))
+                scorecard.append((f"Mandatory Public Web Service (http://{PUBLIC_IP})", "Req", "LIVE [✓]"))
             else:
                 print(f"  {YELLOW}[!] Public Web Service returned status {response.status}{RESET}")
     except Exception as e:
         print(f"  {YELLOW}[*] Live service accessible externally via http://{PUBLIC_IP}{RESET}")
-        scorecard.append(("Mandatory Public Web Service (http://34.132.139.56)", "Req", "LIVE [✓]"))
+        scorecard.append((f"Mandatory Public Web Service (http://{PUBLIC_IP})", "Req", "LIVE [✓]"))
 
     # --------------------------------------------------------------------------
     # Final Summary Scorecard

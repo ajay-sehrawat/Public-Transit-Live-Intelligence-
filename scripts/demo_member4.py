@@ -24,7 +24,7 @@ CYAN = "\033[96m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
-PUBLIC_IP = "34.132.139.56"
+PUBLIC_IP = "8.233.33.106"
 
 def run_cmd(cmd, description):
     print(f"  [*] Executing: {BOLD}{description}{RESET}...")
