@@ -19,8 +19,8 @@ spec:
     spec:
       containers:
       - name: transport-analytics
-        image: gcr.io/transit-s11-prod/transport-analytics:v1.0.0
-        imagePullPolicy: IfNotPresent
+        image: gcr.io/transit-s11-bits-12730/transport-analytics:v1.0.3
+        imagePullPolicy: Always
         ports:
         - containerPort: 8008
           name: http

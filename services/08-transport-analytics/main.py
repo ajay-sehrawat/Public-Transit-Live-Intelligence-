@@ -383,6 +383,32 @@ def get_live_feed():
 
         arrivals.sort(key=lambda x: x["eta_seconds"])
 
+        # In-Memory Fleet Fallback: ensure live map ALWAYS renders active buses
+        if not buses:
+            for bus_id, state in LIVE_FLEET_STATE.items():
+                route_id = state.get("route_id", "ROUTE-1")
+                waypoints = ROUTE_WAYPOINTS.get(route_id, ROUTE_WAYPOINTS["ROUTE-1"])
+                target_idx = state.get("target_idx", 1)
+                target_wp = waypoints[min(target_idx, len(waypoints) - 1)]
+                delay_mins = float(state.get("delay", 0.0))
+                eta_sec = 120 + int(delay_mins * 60)
+                item = {
+                    "bus_id": bus_id,
+                    "route_id": route_id,
+                    "latitude": round(state["lat"], 6),
+                    "longitude": round(state["lon"], 6),
+                    "speed_kmh": round(state.get("speed", 32.0), 1),
+                    "next_stop_id": target_wp["stop_id"],
+                    "next_stop_name": target_wp["name"],
+                    "eta_seconds": eta_sec,
+                    "delay_minutes": delay_mins,
+                    "status": state.get("status", "ON_TIME")
+                }
+                buses.append(item)
+                arrivals.append(item)
+                total_speed += state.get("speed", 32.0)
+            arrivals.sort(key=lambda x: x["eta_seconds"])
+
         # 2. Fetch Crowd Demand for Stops
         demand_docs = firestore_client.collection("passenger_demand").stream()
         crowd_map = {}
