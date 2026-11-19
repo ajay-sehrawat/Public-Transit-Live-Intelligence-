@@ -269,7 +269,15 @@ def get_dashboard_root():
             with open(STATIC_INDEX_PATH, "r", encoding="utf-8") as f:
                 content = f.read()
             _record_metric("get_dashboard_root", (time.time() - t0) * 1000)
-            return Response(content=content, media_type="text/html")
+            return Response(
+                content=content,
+                media_type="text/html",
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
         return {"message": "Transport Analytics API active. Static dashboard not found."}
     except Exception as e:
         logger.error(f"Error serving dashboard: {e}")
