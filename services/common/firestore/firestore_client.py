@@ -150,25 +150,86 @@ class InMemoryFirestore:
             return [InMemoryDocumentSnapshot(doc_id, dict(data)) for doc_id, data in col.items()]
 
 
-class SafeCollectionWrapper:
-    def __init__(self, real_col):
-        self.real_col = real_col
+class SafeDocumentReference:
+    def __init__(self, real_doc, mem_doc):
+        self.real_doc = real_doc
+        self.mem_doc = mem_doc
 
-    def stream(self):
-        try:
-            return list(self.real_col.stream())
-        except Exception as e:
-            logger.warning(f"Error streaming from Firestore: {e}")
-            return []
+    def set(self, data: Dict[str, Any], merge: bool = False):
+        if self.mem_doc:
+            try:
+                self.mem_doc.set(data, merge=merge)
+            except Exception as e:
+                logger.warning(f"Error setting in-memory document: {e}")
+        if self.real_doc:
+            try:
+                self.real_doc.set(data, merge=merge)
+            except Exception as e:
+                logger.warning(f"Cloud Firestore set failed (using in-memory fallback): {e}")
 
-    def document(self, doc_id: str):
-        return self.real_col.document(doc_id)
+    def get(self):
+        if self.real_doc:
+            try:
+                snap = self.real_doc.get()
+                if snap.exists:
+                    return snap
+            except Exception:
+                pass
+        return self.mem_doc.get() if self.mem_doc else None
 
-    def where(self, *args, **kwargs):
-        return self.real_col.where(*args, **kwargs)
+    def delete(self):
+        if self.mem_doc:
+            try:
+                self.mem_doc.delete()
+            except Exception:
+                pass
+        if self.real_doc:
+            try:
+                self.real_doc.delete()
+            except Exception:
+                pass
 
     def __getattr__(self, name):
-        return getattr(self.real_col, name)
+        if self.real_doc:
+            return getattr(self.real_doc, name)
+        return getattr(self.mem_doc, name)
+
+
+class SafeCollectionWrapper:
+    def __init__(self, collection_name: str, real_col, mem_col):
+        self.collection_name = collection_name
+        self.real_col = real_col
+        self.mem_col = mem_col
+
+    def stream(self):
+        docs = []
+        if self.real_col:
+            try:
+                docs = list(self.real_col.stream())
+            except Exception as e:
+                logger.warning(f"Cloud Firestore stream failed (using in-memory fallback): {e}")
+                docs = []
+        if not docs and self.mem_col:
+            docs = self.mem_col.stream()
+        return docs
+
+    def document(self, doc_id: str):
+        real_doc = self.real_col.document(doc_id) if self.real_col else None
+        mem_doc = self.mem_col.document(doc_id) if self.mem_col else None
+        return SafeDocumentReference(real_doc, mem_doc)
+
+    def where(self, *args, **kwargs):
+        if self.real_col:
+            try:
+                return self.real_col.where(*args, **kwargs)
+            except Exception:
+                pass
+        return self.mem_col.where(*args, **kwargs) if self.mem_col else None
+
+    def __getattr__(self, name):
+        if self.real_col:
+            return getattr(self.real_col, name)
+        return getattr(self.mem_col, name)
 
 
 class TransitFirestoreClient:
@@ -188,7 +249,8 @@ class TransitFirestoreClient:
                 self.real_client = None
 
     def collection(self, name: str):
+        mem_col = self.in_memory.collection(name)
         if self.real_client:
-            return SafeCollectionWrapper(self.real_client.collection(name))
-        return self.in_memory.collection(name)
+            return SafeCollectionWrapper(name, self.real_client.collection(name), mem_col)
+        return mem_col
 
