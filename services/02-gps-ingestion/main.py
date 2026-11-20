@@ -188,6 +188,12 @@ def ingest_telemetry(payload: GPSTelemetryPayload):
         message="Telemetry validated and published to bus-gps-raw"
     )
 
+@app.post("/api/v1/telemetry/gps", status_code=status.HTTP_202_ACCEPTED,
+          response_model=IngestionResponse, tags=["Telemetry Ingestion"])
+def ingest_telemetry_gps_alias(payload: GPSTelemetryPayload):
+    """Alias route supporting /api/v1/telemetry/gps endpoint."""
+    return ingest_telemetry(payload)
+
 @app.post("/api/v1/telemetry/batch", status_code=status.HTTP_202_ACCEPTED,
           response_model=BatchIngestionResponse, tags=["Telemetry Ingestion"])
 def ingest_telemetry_batch(payload: BatchTelemetryPayload):
