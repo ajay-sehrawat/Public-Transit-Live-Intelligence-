@@ -50,19 +50,32 @@ def flood_worker():
             time.sleep(0.01)
 
 def get_hpa_line():
-    """Returns formatted HPA metrics string."""
+    """Returns formatted HPA metrics string and current replica count safely."""
     try:
         p = subprocess.run(
-            ["kubectl", "get", "hpa", HPA_NAME, "-n", NAMESPACE, "--no-headers"],
+            ["kubectl", "get", "hpa", HPA_NAME, "-n", NAMESPACE, "-o", "jsonpath={.status.currentMetrics[0].resource.current.averageUtilization},{.status.currentReplicas}"],
             capture_output=True, text=True, timeout=3
         )
         if p.returncode == 0 and p.stdout.strip():
-            parts = p.stdout.strip().split()
-            # NAME REFERENCE TARGETS MIN MAX REPLICAS
-            return parts[2], parts[-1]
+            out = p.stdout.strip().split(",")
+            cpu = out[0] if out[0] else "0"
+            reps = int(out[1]) if len(out) > 1 and out[1].isdigit() else 2
+            return f"CPU: {cpu}% / 50%", reps
     except Exception:
         pass
-    return "<unknown>", "2"
+
+    # Fallback to checking deployment replicas directly
+    try:
+        p = subprocess.run(
+            ["kubectl", "get", "deployment", APP_LABEL, "-n", NAMESPACE, "-o", "jsonpath={.status.replicas}"],
+            capture_output=True, text=True, timeout=3
+        )
+        if p.returncode == 0 and p.stdout.strip().isdigit():
+            return "Evaluating CPU", int(p.stdout.strip())
+    except Exception:
+        pass
+
+    return "Evaluating CPU", 2
 
 def get_running_pods():
     """Returns count of running pods."""
@@ -118,7 +131,7 @@ def main():
             print(f"  [*] [{elapsed:>2}s] Sent {total_sent:>5} requests ({rps:>3} req/s) | HPA: {targets:<12} | Pods: {running}/{total} Running")
 
             # Check if HPA increased replicas
-            if total > 2 or int(replicas) > 2:
+            if total > 2 or (isinstance(replicas, int) and replicas > 2):
                 scaled_up = True
                 print(f"\n{BOLD}{GREEN}  >>> [✓] HPA SCALE-OUT DETECTED! Replicas increased from 2 to {total}! <<<{RESET}\n")
                 break
@@ -141,3 +154,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
