@@ -97,10 +97,11 @@ else:
         pass
 
     class Response:
-        def __init__(self, content: any = b"", status_code: int = 200, media_type: str = "text/plain"):
+        def __init__(self, content: any = b"", status_code: int = 200, media_type: str = "text/plain", headers: any = None):
             self.body = content.encode("utf-8") if isinstance(content, str) else content
             self.status_code = status_code
             self.media_type = media_type
+            self.headers = headers or {}
 
     class JSONResponse(Response):
         def __init__(self, content: any = None, status_code: int = 200):
