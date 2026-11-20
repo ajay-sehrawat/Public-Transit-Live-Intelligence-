@@ -94,16 +94,22 @@ def main():
     success, elapsed = send_traffic_batch(num_requests=600, concurrency=40)
     print(f"  {GREEN}[✓] Ingested {success} requests in {elapsed}s (~{round(600/elapsed, 1)} req/s){RESET}")
 
-    # Step 3: Trigger Scale-Out
-    print(f"\n{BOLD}{YELLOW}[PHASE 3] Triggering Scale-Out to 4 Replicas (Within HPA Max: 6)...{RESET}")
-    subprocess.run(["kubectl", "scale", f"deployment/{DEPLOYMENT}", "--replicas=4", "-n", NAMESPACE],
-                   capture_output=True, text=True)
+    # Step 3: Trigger Scale-Out via HPA Controller
+    print(f"\n{BOLD}{YELLOW}[PHASE 3] Instructing HPA Controller to Scale Out (minReplicas: 2 -> 4)...{RESET}")
+    # Patch HPA minReplicas so the HPA Controller itself scales and maintains 4 pods
+    subprocess.run([
+        "kubectl", "patch", "hpa", f"{DEPLOYMENT}-hpa", "-n", NAMESPACE,
+        "--patch", '{"spec":{"minReplicas":4}}'
+    ], capture_output=True, text=True)
+    subprocess.run([
+        "kubectl", "scale", f"deployment/{DEPLOYMENT}", "--replicas=4", "-n", NAMESPACE
+    ], capture_output=True, text=True)
 
-    print("  Waiting for Kubernetes scheduler to bind and start new pods across nodes...")
-    for sec in range(1, 16):
+    print("  Waiting for Kubernetes HPA controller & scheduler to start all 4 pods...")
+    for sec in range(1, 25):
         time.sleep(1)
         running, total, pods = get_pod_status(DEPLOYMENT)
-        sys.stdout.write(f"\r  [*] Transitioning: {running}/{total} pods Running ({sec}s elapsed)...")
+        sys.stdout.write(f"\r  [*] Transitioning: {running}/4 pods Running ({sec}s elapsed)...")
         sys.stdout.flush()
         if running >= 4:
             break
@@ -137,12 +143,17 @@ def main():
     except (KeyboardInterrupt, EOFError):
         pass
 
-    print(f"\n{BOLD}[*] Scaling back down to baseline 2 replicas...{RESET}")
+    print(f"\n{BOLD}[*] Scaling back down to baseline 2 replicas via HPA...{RESET}")
+    subprocess.run([
+        "kubectl", "patch", "hpa", f"{DEPLOYMENT}-hpa", "-n", NAMESPACE,
+        "--patch", '{"spec":{"minReplicas":2}}'
+    ], capture_output=True, text=True)
     subprocess.run(["kubectl", "scale", f"deployment/{DEPLOYMENT}", "--replicas=2", "-n", NAMESPACE],
                    capture_output=True, text=True)
-    time.sleep(2)
+    time.sleep(3)
     running, total, _ = get_pod_status(DEPLOYMENT)
     print(f"{GREEN}[✓] Scale-in complete. {running}/{total} pods running at baseline.{RESET}\n")
 
 if __name__ == "__main__":
     main()
+
