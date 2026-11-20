@@ -152,6 +152,21 @@ def main():
 
     print(f"\n{BOLD}{GREEN}  DEMONSTRATION COMPLETE: Task (c) HPA Autoscaling Proven!{RESET}\n")
 
+    # Interactive Scale Down prompt for viva demonstration
+    try:
+        input(f"{BOLD}{YELLOW}Press [ENTER] to demonstrate graceful SCALE-DOWN back to baseline 2 pods...{RESET}")
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+    print(f"\n{BOLD}[*] Executing Scale-Down back to baseline (2 replicas)...{RESET}")
+    subprocess.run(["kubectl", "scale", f"deployment/{APP_LABEL}", "--replicas=2", "-n", NAMESPACE],
+                   capture_output=True, text=True)
+    time.sleep(2)
+    running, total = get_running_pods()
+    print(f"{BOLD}{GREEN}[✓] Scale-down complete. Active pods: {running}/{total} (Back to baseline).{RESET}\n")
+    subprocess.run(["kubectl", "get", "pods", "-n", NAMESPACE, "-l", f"app={APP_LABEL}"])
+    print("")
+
 if __name__ == "__main__":
     main()
 
