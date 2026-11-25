@@ -4,7 +4,7 @@
 import os
 import sys
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union, Any
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(REPO_ROOT)
@@ -17,7 +17,7 @@ class GPSTelemetryPayload(BaseModel):
     longitude: float = Field(..., example=75.5872, description="WGS-84 Longitude")
     speed_kmh: float = Field(0.0, example=34.5, description="Current velocity in km/h")
     heading: float = Field(0.0, example=182.0, description="Compass bearing (0-360 degrees)")
-    timestamp: any = Field(..., example="2026-11-18T02:15:00Z", description="ISO-8601 UTC timestamp or Unix epoch")
+    timestamp: Union[str, int, float] = Field(..., example="2026-11-18T02:15:00Z", description="ISO-8601 UTC timestamp or Unix epoch")
 
     @validator("latitude")
     def validate_latitude(cls, v):
