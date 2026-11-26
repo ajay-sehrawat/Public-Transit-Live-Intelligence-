@@ -2,6 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 
 import sys
+import pickle
 from typing import Any
 
 try:
@@ -37,8 +38,8 @@ class VehicleRegistryServiceStub(object):
         if HAS_GRPC and self.channel:
             return self.channel.unary_unary(
                 '/transit.VehicleRegistryService/ValidateVehicle',
-                request_serializer=lambda x: x,
-                response_deserializer=lambda x: x,
+                request_serializer=pickle.dumps,
+                response_deserializer=pickle.loads,
             )(request, timeout=timeout)
         raise RuntimeError("No active gRPC channel or direct servicer available")
 
@@ -48,8 +49,8 @@ class VehicleRegistryServiceStub(object):
         if HAS_GRPC and self.channel:
             return self.channel.unary_unary(
                 '/transit.VehicleRegistryService/GetVehicleDetails',
-                request_serializer=lambda x: x,
-                response_deserializer=lambda x: x,
+                request_serializer=pickle.dumps,
+                response_deserializer=pickle.loads,
             )(request, timeout=timeout)
         raise RuntimeError("No active gRPC channel or direct servicer available")
 
@@ -59,8 +60,8 @@ class VehicleRegistryServiceStub(object):
         if HAS_GRPC and self.channel:
             return self.channel.unary_unary(
                 '/transit.VehicleRegistryService/ListActiveVehicles',
-                request_serializer=lambda x: x,
-                response_deserializer=lambda x: x,
+                request_serializer=pickle.dumps,
+                response_deserializer=pickle.loads,
             )(request, timeout=timeout)
         raise RuntimeError("No active gRPC channel or direct servicer available")
 
@@ -91,8 +92,8 @@ class RouteGeometryServiceStub(object):
         if HAS_GRPC and self.channel:
             return self.channel.unary_unary(
                 '/transit.RouteGeometryService/GetRouteDetails',
-                request_serializer=lambda x: x,
-                response_deserializer=lambda x: x,
+                request_serializer=pickle.dumps,
+                response_deserializer=pickle.loads,
             )(request, timeout=timeout)
         raise RuntimeError("No active gRPC channel or direct servicer available")
 
@@ -102,8 +103,8 @@ class RouteGeometryServiceStub(object):
         if HAS_GRPC and self.channel:
             return self.channel.unary_unary(
                 '/transit.RouteGeometryService/FindNearestStop',
-                request_serializer=lambda x: x,
-                response_deserializer=lambda x: x,
+                request_serializer=pickle.dumps,
+                response_deserializer=pickle.loads,
             )(request, timeout=timeout)
         raise RuntimeError("No active gRPC channel or direct servicer available")
 
@@ -113,8 +114,8 @@ class RouteGeometryServiceStub(object):
         if HAS_GRPC and self.channel:
             return self.channel.unary_unary(
                 '/transit.RouteGeometryService/ListRoutes',
-                request_serializer=lambda x: x,
-                response_deserializer=lambda x: x,
+                request_serializer=pickle.dumps,
+                response_deserializer=pickle.loads,
             )(request, timeout=timeout)
         raise RuntimeError("No active gRPC channel or direct servicer available")
 
@@ -125,18 +126,18 @@ def add_VehicleRegistryServiceServicer_to_server(servicer, server):
         rpc_method_handlers = {
             'ValidateVehicle': grpc.unary_unary_rpc_method_handler(
                 servicer.ValidateVehicle,
-                request_deserializer=lambda x: x,
-                response_serializer=lambda x: x,
+                request_deserializer=pickle.loads,
+                response_serializer=pickle.dumps,
             ),
             'GetVehicleDetails': grpc.unary_unary_rpc_method_handler(
                 servicer.GetVehicleDetails,
-                request_deserializer=lambda x: x,
-                response_serializer=lambda x: x,
+                request_deserializer=pickle.loads,
+                response_serializer=pickle.dumps,
             ),
             'ListActiveVehicles': grpc.unary_unary_rpc_method_handler(
                 servicer.ListActiveVehicles,
-                request_deserializer=lambda x: x,
-                response_serializer=lambda x: x,
+                request_deserializer=pickle.loads,
+                response_serializer=pickle.dumps,
             ),
         }
         generic_handler = grpc.method_handlers_generic_handler(
@@ -150,18 +151,18 @@ def add_RouteGeometryServiceServicer_to_server(servicer, server):
         rpc_method_handlers = {
             'GetRouteDetails': grpc.unary_unary_rpc_method_handler(
                 servicer.GetRouteDetails,
-                request_deserializer=lambda x: x,
-                response_serializer=lambda x: x,
+                request_deserializer=pickle.loads,
+                response_serializer=pickle.dumps,
             ),
             'FindNearestStop': grpc.unary_unary_rpc_method_handler(
                 servicer.FindNearestStop,
-                request_deserializer=lambda x: x,
-                response_serializer=lambda x: x,
+                request_deserializer=pickle.loads,
+                response_serializer=pickle.dumps,
             ),
             'ListRoutes': grpc.unary_unary_rpc_method_handler(
                 servicer.ListRoutes,
-                request_deserializer=lambda x: x,
-                response_serializer=lambda x: x,
+                request_deserializer=pickle.loads,
+                response_serializer=pickle.dumps,
             ),
         }
         generic_handler = grpc.method_handlers_generic_handler(

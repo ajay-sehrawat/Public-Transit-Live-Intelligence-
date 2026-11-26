@@ -130,7 +130,8 @@ def adapt_event_http(payload: RawGPSEvent):
     """Synchronous HTTP endpoint for event adaptation."""
     if not engine:
         raise HTTPException(status_code=500, detail="Adapter engine not initialized.")
-    return engine.normalize_event(payload.dict())
+    data = payload.model_dump() if hasattr(payload, 'model_dump') else payload.dict()
+    return engine.normalize_event(data)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8004))
