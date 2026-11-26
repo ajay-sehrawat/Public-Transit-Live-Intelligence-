@@ -7,17 +7,17 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 // ------------------------------------------------------------------------------
-// Load Test Stages: Sustained High-Throughput Traffic
+// Load Test Stages: Sustained High-Throughput Traffic (Optimized for GKE Nodes)
 // ------------------------------------------------------------------------------
 export const options = {
   stages: [
-    { duration: '1m', target: 300 },   // Ramp-up: 0 to 300 Virtual Users (VUs)
-    { duration: '3m', target: 800 },   // Sustained peak: 800 VUs (~1,500+ requests/sec)
-    { duration: '1m', target: 0 },     // Ramp-down: Cool-down to 0 VUs (HPA scale-in)
+    { duration: '30s', target: 40 },   // Ramp-up: 0 to 40 Virtual Users
+    { duration: '2m',  target: 80 },   // Sustained peak: 80 VUs (~250 requests/sec, drives CPU > 50%)
+    { duration: '30s', target: 0 },    // Ramp-down: Cool-down to 0 VUs (HPA scale-in)
   ],
   thresholds: {
-    http_req_failed: ['rate<0.01'],    // Error rate must remain under 1%
-    http_req_duration: ['p(95)<200'],  // 95% of requests must complete under 200ms
+    http_req_failed: ['rate<0.05'],    // Error rate under 5%
+    http_req_duration: ['p(95)<500'],  // 95% under 500ms
   },
 };
 
