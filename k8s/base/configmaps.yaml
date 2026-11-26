@@ -6,7 +6,7 @@ metadata:
 data:
   ZOOKEEPER_HOSTS: "zookeeper-service.transit-system.svc.cluster.local:2181"
   KAFKA_BOOTSTRAP_SERVERS: "kafka-service.transit-system.svc.cluster.local:9092"
-  DATABASE_HOST: "transit-postgres-db.transit-system.svc.cluster.local"
+  DATABASE_HOST: "34.46.78.203"
   DATABASE_PORT: "5432"
   DATABASE_NAME: "transit_db"
   VEHICLE_REGISTRY_GRPC_HOST: "vehicle-registry-service.transit-system.svc.cluster.local:50051"
