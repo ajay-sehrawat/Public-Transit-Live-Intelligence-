@@ -98,6 +98,14 @@ def shutdown_event():
     if zk_client:
         zk_client.close()
 
+@app.get("/", tags=["Observability"])
+def root():
+    return {
+        "status": "UP",
+        "service": "gps-ingestion",
+        "message": "GPS Ingestion Service is healthy"
+    }
+
 @app.get("/health", tags=["Observability"])
 def health_check():
     return {
