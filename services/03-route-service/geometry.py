@@ -7,6 +7,7 @@ EARTH_RADIUS_METERS = 6371000.0  # WGS-84 mean radius of Earth in meters
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculates the great-circle distance between two points in meters using Haversine formula."""
+    lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)

@@ -108,7 +108,7 @@ def get_nearest_stop(
     lon: float = Query(..., description="Current longitude coordinate (e.g. 75.5872)"),
     max_radius_meters: float = Query(1000.0, description="Maximum search distance in meters")
 ):
-    result = repo.find_nearest_stop(lat, lon, max_radius=max_radius_meters)
+    result = repo.find_nearest_stop(float(lat), float(lon), max_radius=float(max_radius_meters))
     return NearestStopResult(**result)
 
 @app.get("/api/v1/stops/{stop_id}/geofence-check", tags=["Stops & Geofences"])
@@ -122,7 +122,7 @@ def check_geofence(
         raise HTTPException(status_code=404, detail=f"Stop '{stop_id}' not found.")
 
     stop = stops[stop_id]
-    dist = haversine_distance(lat, lon, stop["latitude"], stop["longitude"])
+    dist = haversine_distance(float(lat), float(lon), float(stop["latitude"]), float(stop["longitude"]))
     radius = stop.get("geofence_radius_meters", 60)
     inside = dist <= radius
 

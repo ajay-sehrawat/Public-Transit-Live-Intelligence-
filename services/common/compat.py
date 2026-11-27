@@ -257,7 +257,18 @@ def run_server(app, host: str = "0.0.0.0", port: int = 8080):
                         if p_name in path_params:
                             kwargs[p_name] = path_params[p_name]
                         elif p_name in query_params:
-                            kwargs[p_name] = query_params[p_name][0]
+                            val = query_params[p_name][0]
+                            if param.annotation in (float, "float"):
+                                try:
+                                    val = float(val)
+                                except Exception:
+                                    pass
+                            elif param.annotation in (int, "int"):
+                                try:
+                                    val = int(val)
+                                except Exception:
+                                    pass
+                            kwargs[p_name] = val
                         elif param.annotation != inspect.Parameter.empty and callable(param.annotation):
                             try:
                                 kwargs[p_name] = param.annotation(**body_json)
