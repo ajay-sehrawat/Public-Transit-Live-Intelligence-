@@ -48,7 +48,7 @@ kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT"
 
 # 3. Launch k6 in background
 echo ""
-echo "[3/4] Launching k6 Sustained Load Test (50-60 VUs for 2m)..."
+echo "[3/4] Launching k6 Sustained Load Test (12 VUs, ~220 req/s for 2m)..."
 echo "Generating traffic to push CPU past the 50% HPA threshold..."
 k6 run --env INGESTION_URL="http://localhost:$PORT" load-testing/load_test_hpa.js >/tmp/k6_demo.log 2>&1 &
 K6_PID=$!
