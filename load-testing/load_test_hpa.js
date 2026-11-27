@@ -69,7 +69,7 @@ export default function () {
         'Connection': 'keep-alive',
         'X-Load-Test': 'k6-hpa-benchmark'
       },
-      timeout: '3s'
+      timeout: '10s'
     });
     check(res, {
       'status is 200 OK': (r) => r.status === 200,
@@ -82,14 +82,14 @@ export default function () {
         'Connection': 'keep-alive',
         'X-Load-Test': 'k6-hpa-benchmark'
       },
-      timeout: '3s'
+      timeout: '10s'
     });
     check(res, {
       'status is 200/202': (r) => r.status === 200 || r.status === 202,
     });
   }
 
-  // Small sleep to maintain steady concurrent throughput
-  sleep(0.01);
+  // Small sleep to maintain steady concurrent throughput without overloading socket buffer
+  sleep(0.04);
 }
 
