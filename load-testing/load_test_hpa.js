@@ -11,13 +11,13 @@ import { check, sleep } from 'k6';
 // ------------------------------------------------------------------------------
 export const options = {
   stages: [
-    { duration: '20s', target: 50 },   // Ramp-up: 0 to 50 Virtual Users
-    { duration: '2m',  target: 100 },  // Sustained peak: 100 VUs (~350 requests/sec, drives CPU > 50%)
-    { duration: '20s', target: 0 },    // Ramp-down: Cool-down to 0 VUs (HPA scale-in)
+    { duration: '15s', target: 10 },   // Ramp-up: 10 Virtual Users
+    { duration: '2m',  target: 15 },   // Sustained peak: 15 VUs (~150-200 requests/sec, drives CPU > 50%)
+    { duration: '15s', target: 0 },    // Ramp-down: Cool-down to 0 VUs (HPA scale-in)
   ],
   thresholds: {
-    http_req_failed: ['rate<0.05'],    // Error rate under 5%
-    http_req_duration: ['p(95)<500'],  // 95% under 500ms
+    http_req_failed: ['rate<0.02'],    // Error rate under 2%
+    http_req_duration: ['p(95)<300'],  // 95% under 300ms
   },
 };
 
@@ -65,21 +65,31 @@ export default function () {
 
   if (targetPath === '/health') {
     res = http.get(`${BASE_URL}/health`, {
-      headers: { 'X-Load-Test': 'k6-hpa-benchmark' },
-      timeout: '4s'
+      headers: {
+        'Connection': 'keep-alive',
+        'X-Load-Test': 'k6-hpa-benchmark'
+      },
+      timeout: '3s'
     });
     check(res, {
       'status is 200 OK': (r) => r.status === 200,
       'service is UP': (r) => r.json('status') === 'UP',
     });
   } else {
-    res = http.post(`${BASE_URL}${targetPath}`, payload, params);
+    res = http.post(`${BASE_URL}${targetPath}`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Connection': 'keep-alive',
+        'X-Load-Test': 'k6-hpa-benchmark'
+      },
+      timeout: '3s'
+    });
     check(res, {
       'status is 200/202': (r) => r.status === 200 || r.status === 202,
     });
   }
 
   // Small sleep to maintain steady concurrent throughput
-  sleep(0.02);
+  sleep(0.01);
 }
 
