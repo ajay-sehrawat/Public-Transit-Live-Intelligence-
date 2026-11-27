@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: passenger-demand
-        image: gcr.io/transit-s11-prod/passenger-demand:v1.0.0
+        image: gcr.io/transit-s11-bits-12730/passenger-demand:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8006

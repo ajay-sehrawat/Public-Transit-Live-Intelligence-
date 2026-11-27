@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: vehicle-registry
-        image: gcr.io/transit-s11-prod/vehicle-registry:v1.0.0
+        image: gcr.io/transit-s11-bits-12730/vehicle-registry:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8001

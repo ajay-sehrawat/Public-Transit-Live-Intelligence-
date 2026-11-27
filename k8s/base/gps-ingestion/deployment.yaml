@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: gps-ingestion
-        image: gcr.io/transit-s11-prod/gps-ingestion:v1.0.0
+        image: gcr.io/transit-s11-bits-12730/gps-ingestion:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8002

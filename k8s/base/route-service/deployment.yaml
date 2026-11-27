@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: route-service
-        image: gcr.io/transit-s11-prod/route-service:v1.0.0
+        image: gcr.io/transit-s11-bits-12730/route-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8003

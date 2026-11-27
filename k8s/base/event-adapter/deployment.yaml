@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: event-adapter
-        image: gcr.io/transit-s11-prod/event-adapter:v1.0.0
+        image: gcr.io/transit-s11-bits-12730/event-adapter:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8004
