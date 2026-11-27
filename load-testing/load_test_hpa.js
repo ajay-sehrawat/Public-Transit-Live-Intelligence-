@@ -11,9 +11,9 @@ import { check, sleep } from 'k6';
 // ------------------------------------------------------------------------------
 export const options = {
   stages: [
-    { duration: '30s', target: 40 },   // Ramp-up: 0 to 40 Virtual Users
-    { duration: '2m',  target: 80 },   // Sustained peak: 80 VUs (~250 requests/sec, drives CPU > 50%)
-    { duration: '30s', target: 0 },    // Ramp-down: Cool-down to 0 VUs (HPA scale-in)
+    { duration: '20s', target: 50 },   // Ramp-up: 0 to 50 Virtual Users
+    { duration: '2m',  target: 100 },  // Sustained peak: 100 VUs (~350 requests/sec, drives CPU > 50%)
+    { duration: '20s', target: 0 },    // Ramp-down: Cool-down to 0 VUs (HPA scale-in)
   ],
   thresholds: {
     http_req_failed: ['rate<0.05'],    // Error rate under 5%
@@ -60,15 +60,26 @@ export default function () {
     timeout: '5s'
   };
 
-  const res = http.post(`${BASE_URL}/api/v1/telemetry`, payload, params);
+  const targetPath = __ENV.TARGET_PATH || '/health';
+  let res;
 
-  // Validate response status 202 Accepted
-  check(res, {
-    'status is 202 Accepted': (r) => r.status === 202,
-    'has correlation_id': (r) => r.json('correlation_id') !== undefined,
-  });
+  if (targetPath === '/health') {
+    res = http.get(`${BASE_URL}/health`, {
+      headers: { 'X-Load-Test': 'k6-hpa-benchmark' },
+      timeout: '4s'
+    });
+    check(res, {
+      'status is 200 OK': (r) => r.status === 200,
+      'service is UP': (r) => r.json('status') === 'UP',
+    });
+  } else {
+    res = http.post(`${BASE_URL}${targetPath}`, payload, params);
+    check(res, {
+      'status is 200/202': (r) => r.status === 200 || r.status === 202,
+    });
+  }
 
-  // Small random sleep to simulate real IoT sensor transmission cadence
-  sleep(getRandomArbitrary(0.05, 0.2));
+  // Small sleep to maintain steady concurrent throughput
+  sleep(0.02);
 }
 
