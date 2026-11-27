@@ -48,18 +48,19 @@ kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT"
 
 # 3. Launch k6 in background
 echo ""
-echo "[3/4] Launching k6 High-Throughput Load Test (35 VUs)..."
+echo "[3/4] Launching k6 Sustained Load Test (50-60 VUs for 2m)..."
 echo "Generating traffic to push CPU past the 50% HPA threshold..."
 k6 run --env INGESTION_URL="http://localhost:$PORT" load-testing/load_test_hpa.js >/tmp/k6_demo.log 2>&1 &
 K6_PID=$!
 
-# 4. Live Monitor Loop
+# 4. Live Monitor Loop (Run for up to 2m30s to allow GKE Metrics Server to compute average CPU)
 echo ""
 echo "[4/4] Monitoring HPA & Pods Live in Real Time..."
+echo "Note: GKE Metrics Server collects CPU over a 45-60s rolling average..."
 echo "-----------------------------------------------------------------"
 
 SCALED=0
-for i in {1..24}; do
+for i in {1..35}; do
   PODS=$(kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT" --no-headers 2>/dev/null | wc -l | tr -d ' ')
   RUNNING=$(kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT" --no-headers 2>/dev/null | grep -c "Running" || true)
   
@@ -79,9 +80,11 @@ for i in {1..24}; do
     break
   fi
 
-  # Check if k6 finished
+  # Check if k6 finished early
   if ! kill -0 $K6_PID 2>/dev/null; then
-    echo "[i] k6 traffic phase completed."
+    echo "[i] k6 traffic process completed. Waiting for GKE metrics update..."
+    # Give metrics server 15 seconds to reflect the final load
+    sleep 10
     break
   fi
 
@@ -93,8 +96,9 @@ echo "================================================================="
 if [ "$SCALED" -eq 1 ]; then
   echo "  [✓] DEMO SUCCESSFUL: HPA Automatically Scaled Deployment Out! "
 else
-  echo "  [✓] Traffic finished. Checking recent rescale events:         "
+  echo "  [✓] Check k6 output log and latest events:                   "
+  tail -n 15 /tmp/k6_demo.log 2>/dev/null || true
 fi
 echo "================================================================="
 echo "Official Kubernetes HPA Rescale Events:"
-kubectl get events -n "$NAMESPACE" --field-selector reason=SuccessfulRescale
+kubectl get events -n "$NAMESPACE" --field-selector reason=SuccessfulRescale | tail -n 8
