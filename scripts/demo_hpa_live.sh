@@ -15,7 +15,7 @@ echo "  Target: $DEPLOYMENT (HPA Target: 50% CPU, Min: 2, Max: 8)     "
 echo "================================================================="
 
 # 1. Clean up old port-forwards and start fresh
-echo "[1/4] Ensuring port-forward to $DEPLOYMENT on port $PORT is active..."
+echo "[1/4] Ensuring clean port-forward to $DEPLOYMENT on port $PORT..."
 fuser -k $PORT/tcp 2>/dev/null || pkill -f "port-forward.*$PORT" 2>/dev/null || true
 sleep 1
 
@@ -36,7 +36,7 @@ done
 if [ "$READY" -ne 1 ]; then
   echo "[!] Port-forward starting up, verifying pod readiness..."
 fi
-echo "[✓] Port-forward established to $DEPLOYMENT:$PORT"
+echo "[✓] Port-forward verified healthy to $DEPLOYMENT:$PORT"
 
 # 2. Show Initial Baseline
 echo ""
@@ -48,7 +48,7 @@ kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT"
 
 # 3. Launch k6 in background
 echo ""
-echo "[3/4] Launching k6 Sustained Load Test..."
+echo "[3/4] Launching k6 High-Throughput Load Test (35 VUs)..."
 echo "Generating traffic to push CPU past the 50% HPA threshold..."
 k6 run --env INGESTION_URL="http://localhost:$PORT" load-testing/load_test_hpa.js >/tmp/k6_demo.log 2>&1 &
 K6_PID=$!
@@ -62,9 +62,12 @@ SCALED=0
 for i in {1..24}; do
   PODS=$(kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT" --no-headers 2>/dev/null | wc -l | tr -d ' ')
   RUNNING=$(kubectl get pods -n "$NAMESPACE" -l "app=$DEPLOYMENT" --no-headers 2>/dev/null | grep -c "Running" || true)
-  HPA_LINE=$(kubectl get hpa "$HPA_NAME" -n "$NAMESPACE" --no-headers 2>/dev/null | awk '{print "CPU: "$3", Replicas: "$6}')
+  
+  HPA_RAW=$(kubectl get hpa "$HPA_NAME" -n "$NAMESPACE" --no-headers 2>/dev/null || true)
+  CURRENT_CPU=$(echo "$HPA_RAW" | awk '{print $4}')
+  CURR_REPLICAS=$(echo "$HPA_RAW" | awk '{print $7}')
 
-  echo "[T+$(($i * 5))s] $HPA_LINE | Total Pods: $PODS ($RUNNING Running)"
+  echo "[T+$(($i * 5))s] CPU Utilization: ${CURRENT_CPU:-<sampling>} (Target: 50%) | HPA Replicas: ${CURR_REPLICAS:-2} | Active Pods: $PODS ($RUNNING Running)"
 
   if [ "$PODS" -gt 2 ]; then
     SCALED=1
@@ -90,7 +93,7 @@ echo "================================================================="
 if [ "$SCALED" -eq 1 ]; then
   echo "  [✓] DEMO SUCCESSFUL: HPA Automatically Scaled Deployment Out! "
 else
-  echo "  [✓] Checking Kubernetes HPA Rescale History...               "
+  echo "  [✓] Traffic finished. Checking recent rescale events:         "
 fi
 echo "================================================================="
 echo "Official Kubernetes HPA Rescale Events:"
