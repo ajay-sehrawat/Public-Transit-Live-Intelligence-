@@ -1,25 +1,26 @@
 // ==============================================================================
 // S11 Public Transportation System: k6 Sustained Load Testing Suite (Requirement c)
 // Target: Service 2 (GPS Ingestion Service) & HPA Scale-Out Validation
+// Target Endpoint: GCE Public Ingress http://8.233.33.106/api/v1/telemetry
 // ==============================================================================
 
 import http from 'k6/http';
 import { sleep } from 'k6';
 
 // ------------------------------------------------------------------------------
-// Load Test Stages: Sustained High-Throughput Telemetry Ingestion Traffic
-// 40 concurrent VUs sending JSON payloads triggers real Python CPU execution
-// (Pydantic validation, serialization) driving pod CPU > 50% to force HPA scale-out.
+// Sustained High-Throughput Ingestion Traffic:
+// Hits Google Cloud Ingress directly (no port-forward bottleneck) to drive
+// pod CPU above the 50% target threshold and trigger live HPA scale-out.
 // ------------------------------------------------------------------------------
 export const options = {
   stages: [
     { duration: '15s', target: 30 },  // Quick ramp-up: 30 VUs
-    { duration: '2m',  target: 50 },  // Sustained peak: 50 VUs (drives CPU to 70-90% > 50% target)
+    { duration: '2m',  target: 60 },  // Sustained peak: 60 VUs (~250-400 req/s)
     { duration: '15s', target: 0 },   // Cool-down to 0 VUs
   ],
 };
 
-const BASE_URL = __ENV.INGESTION_URL || 'http://localhost:8002';
+const BASE_URL = __ENV.INGESTION_URL || 'http://8.233.33.106';
 const BUS_FLEET = ['BUS-101', 'BUS-102', 'BUS-103', 'BUS-201', 'BUS-202', 'BUS-401'];
 
 export default function () {
@@ -30,7 +31,7 @@ export default function () {
   const heading = Math.random() * 360.0;
   const nowIso = new Date().toISOString();
 
-  // Telemetry POST payload consumes real Python CPU (JSON decoding + Pydantic validation)
+  // Real GPS Telemetry JSON Payload
   const payload = JSON.stringify({
     bus_id: busId,
     latitude: parseFloat(lat.toFixed(6)),
@@ -43,20 +44,13 @@ export default function () {
   const params = {
     headers: {
       'Content-Type': 'application/json',
-      'Connection': 'keep-alive',
       'X-Load-Test': 'k6-hpa-benchmark'
     },
-    timeout: '3s'
+    timeout: '4s'
   };
 
-  // Send POST telemetry ping to drive pod CPU
+  // Direct Ingress POST to GPS Ingestion service
   http.post(`${BASE_URL}/api/v1/telemetry`, payload, params);
 
-  // Also hit health check
-  http.get(`${BASE_URL}/health`, {
-    headers: { 'Connection': 'keep-alive' },
-    timeout: '3s'
-  });
-
-  sleep(0.01);
+  sleep(0.02);
 }
