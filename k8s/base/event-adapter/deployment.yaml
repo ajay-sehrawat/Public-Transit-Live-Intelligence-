@@ -7,7 +7,7 @@ metadata:
     app: event-adapter
     tier: critical-processor
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: event-adapter
